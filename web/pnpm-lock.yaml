@@ -81,7 +81,7 @@ packages:
       '@anywalletkit/core': 0.7.0
 
   '@anywalletkit/protocol-swap2-near-intents@file:vendor/anywalletkit-protocol-swap2-near-intents-0.2.1.tgz':
-    resolution: {integrity: sha512-MqfY9+868Afnt0bqbDp7O9Xd/SO/F04bIQOjKJIu28lPmOXNEY4UJvw1yPBXJGIy7uOYXq23iM++KXcO6Z7vMw==, tarball: file:vendor/anywalletkit-protocol-swap2-near-intents-0.2.1.tgz}
+    resolution: {integrity: sha512-klG7YuBgxT2XaY0/d2g4fKL0eCgKEB2/41cUoKIRAQl0tTUpJUCqgh+gYVXSdxZY3QtyWd98g3+PRh7SmKWHhw==, tarball: file:vendor/anywalletkit-protocol-swap2-near-intents-0.2.1.tgz}
     version: 0.2.1
     engines: {node: '>=22'}
     peerDependencies:

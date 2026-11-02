@@ -5,9 +5,16 @@ import { sourceAsset } from "./assets";
 import type { Jar } from "./jars";
 import { tokenPrices, usdToUnits } from "./prices";
 
+/**
+ * near.com keeps funds in the Confidential Intents balance. With a 1Click partner JWT donations are
+ * credited there directly; without one they land in the public intents.near balance, which near.com
+ * shows as "legacy" until the owner moves it.
+ */
+export const CONFIDENTIAL_DELIVERY = !!process.env.ONE_CLICK_JWT;
+
 /** Any Wallet Kit's NEAR Intents provider, crediting the jar owner's near.com account. */
 export const toNearCom = nearIntentsProvider({
-  recipientType: "INTENTS",
+  recipientType: CONFIDENTIAL_DELIVERY ? "CONFIDENTIAL_INTENTS" : "INTENTS",
   ...(process.env.ONE_CLICK_API_URL ? { apiUrl: process.env.ONE_CLICK_API_URL } : {}),
   ...(process.env.ONE_CLICK_JWT ? { jwt: process.env.ONE_CLICK_JWT } : {}),
 });

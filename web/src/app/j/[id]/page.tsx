@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { DonatePanel } from "@/components/DonatePanel";
 import { RECEIVE_ASSETS, SOURCE_ASSETS, receiveAsset } from "@/lib/assets";
 import { getJar } from "@/lib/jars";
+import { CONFIDENTIAL_DELIVERY } from "@/lib/quote";
 
 export default function JarPage({ params }: PageProps<"/j/[id]">) {
   return (
@@ -44,6 +45,11 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
         <div className="rounded-2xl border border-line bg-surface p-5 text-sm">
           <p className="text-muted">Donations arrive in this near.com account as {asset.symbol}:</p>
           <p className="mt-1 break-all font-mono">nearcom:{jar.owner}</p>
+          <p className="mt-2 text-muted">
+            {CONFIDENTIAL_DELIVERY
+              ? "Straight into the owner's Confidential near.com balance, ready to use."
+              : "Lands in the public (legacy) balance; the owner moves it to Confidential in near.com."}
+          </p>
         </div>
       </section>
 
