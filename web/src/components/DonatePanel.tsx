@@ -112,7 +112,7 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
     }
   }
 
-  if (donation) return <DonationStatus initial={donation} receive={props.receive} />;
+  if (donation) return <DonationStatus initial={donation} receive={props.receive} {...(quote ? { etaSeconds: quote.etaSeconds } : {})} />;
 
   const receiveOut = quote ? formatUnits(BigInt(quote.amountOut), props.receive.decimals) : null;
 
