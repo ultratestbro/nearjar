@@ -11,6 +11,10 @@ const UPSTREAM: Record<string, { url: () => string | undefined; methods: Set<str
       "getSignatureStatuses", "getEpochInfo", "getSlot",
     ]),
   },
+  ton: {
+    url: () => process.env.TON_RPC_URL ?? "https://toncenter.com/api/v2/jsonRPC",
+    methods: new Set(["runGetMethod", "getAddressBalance", "getAddressInformation"]),
+  },
 };
 
 export async function POST(request: Request, ctx: RouteContext<"/api/rpc/[chain]">) {
