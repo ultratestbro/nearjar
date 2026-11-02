@@ -1,0 +1,74 @@
+import { WalletAccountReadOnlySolana } from "@anywalletkit/wallet-solana";
+import { compileTransaction, getBase64EncodedWireTransaction } from "@solana/kit";
+import { getWallets } from "@wallet-standard/app";
+import type { Wallet, WalletAccount } from "@wallet-standard/base";
+import type { PayInstruction, Payer } from "./types";
+
+/**
+ * Exposes Any Wallet Kit's Solana transfer builders (native SOL, SPL with the recipient's token
+ * account created idempotently, compute budget, simulation) for an external wallet to sign.
+ */
+class DepositBuilder extends WalletAccountReadOnlySolana {
+  async depositWire(p: PayInstruction): Promise<Uint8Array> {
+    const built = p.contract
+      ? await this.buildTokenTransfer(p.contract, p.to, BigInt(p.amount))
+      : { message: await this.buildNativeTransfer(p.to, BigInt(p.amount)), tokenFee: 0n };
+    // simulate before the wallet sees it: a transfer that would fail never asks for a signature
+    const plan = await this.planMessage(built.message, { simulate: true, tokenFee: built.tokenFee });
+    const tx = plan.transaction ?? compileTransaction(plan.message as never);
+    const wire = getBase64EncodedWireTransaction(tx as never);
+    return Uint8Array.from(atob(wire), (c) => c.charCodeAt(0));
+  }
+}
+
+type SignAndSend = {
+  signAndSendTransaction(i: { transaction: Uint8Array; account: WalletAccount; chain: string }): Promise<readonly { signature: Uint8Array }[]>;
+};
+type Connect = { connect(): Promise<{ accounts: readonly WalletAccount[] }> };
+
+function solanaWallet(): Wallet | undefined {
+  return getWallets()
+    .get()
+    .find((w) => w.chains.some((c) => c.startsWith("solana:")) && "solana:signAndSendTransaction" in w.features);
+}
+
+/** Phantom, Solflare, Backpack… via Wallet Standard. */
+export async function connectSolanaPayer(): Promise<Payer> {
+  const wallet = solanaWallet();
+  if (!wallet) throw new Error("No Solana wallet found. Install Phantom or Solflare.");
+  const { accounts } = await (wallet.features["standard:connect"] as Connect).connect();
+  const account = accounts.find((a) => a.chains.some((c) => c.startsWith("solana:"))) ?? accounts[0];
+  if (!account) throw new Error("The wallet returned no account.");
+  const builder = new DepositBuilder(account.address, { provider: `${window.location.origin}/api/rpc/solana` });
+  return {
+    family: "solana",
+    label: wallet.name,
+    address: account.address,
+    async pay(p) {
+      const transaction = await builder.depositWire(p);
+      const [out] = await (wallet.features["solana:signAndSendTransaction"] as SignAndSend).signAndSendTransaction({
+        transaction,
+        account,
+        chain: "solana:mainnet",
+      });
+      if (!out) throw new Error("The wallet returned no signature.");
+      return base58(out.signature);
+    },
+  };
+}
+
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function base58(b: Uint8Array): string {
+  let n = 0n;
+  for (const x of b) n = n * 256n + BigInt(x);
+  let s = "";
+  while (n > 0n) {
+    s = B58[Number(n % 58n)] + s;
+    n /= 58n;
+  }
+  for (const x of b) {
+    if (x !== 0) break;
+    s = "1" + s;
+  }
+  return s;
+}
