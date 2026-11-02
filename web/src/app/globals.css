@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* near.com-like palette: near-black surfaces, mint accent. NearJar is a concept, not a near.com product. */
+:root {
+  --bg: #111111;
+  --surface: #1c1c1c;
+  --surface-2: #262626;
+  --line: #2e2e2e;
+  --text: #f2f2f2;
+  --muted: #9a9a9a;
+  --accent: #6ee7a0;
+  --accent-ink: #0b2a18;
+  --danger: #f2777a;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
