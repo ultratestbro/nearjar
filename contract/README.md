@@ -29,7 +29,7 @@ ERC-191 signatures are 65 bytes `r‖s‖v` with `v` = 0/1 (MetaMask returns 27/
 
 ```sh
 cargo test                                   # unit tests (signatures are real ed25519 / secp256k1)
-cargo near build non-reproducible-wasm       # sets --cfg=near (host-function crypto) and runs wasm-opt
+cargo near build non-reproducible-wasm --no-abi   # sets --cfg=near (host-function crypto), runs wasm-opt → target/near/nearjar.wasm (~444 KB)
 ```
 
 Rust is pinned to 1.97.1 (`rust-toolchain.toml`), the same as near/intents.
