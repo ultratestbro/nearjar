@@ -1,0 +1,34 @@
+[package]
+name = "nearjar"
+description = "NearJar: donation jars for near.com (intents.near) accounts"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/ultratestbro/nearjar"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "=5.29.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Signature verification and account keys exactly as intents.near (near.com accounts) does it.
+# MIT, pinned to a reviewed commit.
+defuse-core = { git = "https://github.com/near/intents", rev = "d340060afe1debb8c8f2f2fc6b6c999d48c886b0" }
+
+[dev-dependencies]
+near-sdk = { version = "=5.29.1", features = ["unit-testing"] }
+ed25519-dalek = "2"
+k256 = { version = "0.13", features = ["ecdsa"] }
+sha3 = "0.10"
+bs58 = "0.5"
+hex = "0.4"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
