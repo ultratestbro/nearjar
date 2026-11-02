@@ -33,3 +33,25 @@ cargo near build non-reproducible-wasm --no-abi   # sets --cfg=near (host-functi
 ```
 
 Rust is pinned to 1.97.1 (`rust-toolchain.toml`), the same as near/intents.
+
+## Testnet
+
+intents.near has no testnet deployment, so testnet runs against `intents-stub/` (same `has_public_key` rules for
+implicit accounts, plus `add_public_key` / `remove_public_key`). Live since 2026-11-02:
+
+| Account | Role |
+|---|---|
+| `nearjar.testnet` | NearJar (owner = itself), `intents_id = intents.nearjar.testnet` |
+| `intents.nearjar.testnet` | intents stub |
+| `relayer.nearjar.testnet` | relayer |
+
+Sign an action and submit it as the relayer:
+
+```sh
+cargo run -q --example sign -- ed25519 42 nearjar.testnet '{"action":"create_jar","jar":{…}}' > signed.json
+near contract call-function as-transaction nearjar.testnet submit json-args "$(cat signed.json)" \
+  prepaid-gas '100 Tgas' attached-deposit '0 NEAR' sign-as relayer.nearjar.testnet network-config testnet sign-with-keychain send
+```
+
+Verified on testnet: create via raw Ed25519 and ERC-191 signatures, replayed signature refused (`nonce already used`),
+`record_donation` updates the jar total. Storage: code 4.58 NEAR locked; ~0.0005 NEAR gas per relayer call.

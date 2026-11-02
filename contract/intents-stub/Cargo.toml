@@ -1,0 +1,22 @@
+[package]
+name = "intents-stub"
+description = "Testnet stand-in for intents.near account keys (has_public_key / add_public_key). Not for mainnet."
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "=5.29.1"
+defuse-core = { git = "https://github.com/near/intents", rev = "d340060afe1debb8c8f2f2fc6b6c999d48c886b0" }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
