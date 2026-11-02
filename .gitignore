@@ -1,0 +1,25 @@
+# secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+**/near-credentials/
+**/.near-credentials/
+
+# node / next
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.vercel/
+
+# rust / near
+target/
+*.wasm
+!contract/res/*.wasm
+
+# local data
+*.db
+*.db-journal
+.DS_Store
