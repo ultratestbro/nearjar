@@ -3,6 +3,7 @@ import "server-only";
 import { nearIntentsProvider } from "@anywalletkit/protocol-swap2-near-intents";
 import { sourceAsset } from "./assets";
 import type { Jar } from "./jars";
+import { parseNearComAccount } from "./nearcom";
 import { tokenPrices, usdToUnits } from "./prices";
 
 /**
@@ -53,6 +54,9 @@ export async function quoteDonation(input: {
   }
   const src = sourceAsset(input.sourceChain, input.sourceSymbol);
   if (!src) return { ok: false, error: "Unsupported token." };
+  // INTENTS / CONFIDENTIAL_INTENTS credit intents.near: the recipient must be a canonical account id
+  const owner = parseNearComAccount(jar.owner);
+  if (!owner.ok) return { ok: false, error: owner.error };
   if (!input.dry && !input.refundAddress) return { ok: false, error: "A refund address is required." };
 
   const price = (await tokenPrices()).get(src.assetId)?.price;
@@ -65,7 +69,7 @@ export async function quoteDonation(input: {
     sourceToken: src.symbol,
     destChain: "near:mainnet",
     destToken: jar.receive_asset,
-    destAddress: jar.owner,
+    destAddress: owner.id,
     amountIn: amountIn.toString(),
     ...(input.refundAddress ? { refundAddress: input.refundAddress } : {}),
     dry: input.dry,
@@ -93,6 +97,7 @@ export async function quoteDonation(input: {
 }
 
 function friendly(refusal: string): string {
+  if (/recipient must be a NEAR Intents account id/i.test(refusal)) return "This jar's near.com account can't receive NEAR Intents credits.";
   if (/refundTo is not valid/i.test(refusal)) return "That refund address doesn't look right for this network.";
   if (/1Click 5\d\d|network error|threw/i.test(refusal)) return "NEAR Intents is not answering right now. Try again in a minute.";
   if (/does not list|paused/i.test(refusal)) return "This token can't be routed right now.";

@@ -1,6 +1,6 @@
-import { ACCOUNT_ID } from "@/lib/jarActions";
 import { getJarsByOwner } from "@/lib/jars";
 import { relayCall } from "@/lib/near";
+import { parseNearComAccount } from "@/lib/nearcom";
 
 const STANDARDS = new Set(["erc191", "raw_ed25519", "nep413", "ton_connect", "tip191", "sep53", "webauthn"]);
 
@@ -37,9 +37,9 @@ export async function POST(request: Request) {
 
 /** GET ?owner=<near.com account> → that owner's jars, straight from the contract. */
 export async function GET(request: Request) {
-  const owner = (new URL(request.url).searchParams.get("owner") ?? "").toLowerCase();
-  if (!ACCOUNT_ID.test(owner)) return Response.json({ ok: false, error: "Not a near.com account id." }, { status: 400 });
-  const jars = await getJarsByOwner(owner).catch(() => null);
+  const owner = parseNearComAccount(new URL(request.url).searchParams.get("owner") ?? "");
+  if (!owner.ok) return Response.json({ ok: false, error: owner.error }, { status: 400 });
+  const jars = await getJarsByOwner(owner.id).catch(() => null);
   if (!jars) return Response.json({ ok: false, error: "Could not read the contract." }, { status: 502 });
   return Response.json({ ok: true, jars });
 }

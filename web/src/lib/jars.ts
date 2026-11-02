@@ -1,6 +1,7 @@
 import "server-only";
 
 import { NEARJAR_CONTRACT, view } from "./near";
+import { parseNearComAccount } from "./nearcom";
 
 export { NEARJAR_CONTRACT };
 
@@ -24,8 +25,9 @@ export interface Jar {
  * flow can be tried without creating a jar.
  */
 function demoJar(): Jar | null {
-  const owner = process.env.NEARJAR_DEMO_OWNER;
-  if (!owner) return null;
+  const parsed = parseNearComAccount(process.env.NEARJAR_DEMO_OWNER ?? "");
+  if (!parsed.ok) return null;
+  const owner = parsed.id;
   return {
     id: "demo",
     owner,

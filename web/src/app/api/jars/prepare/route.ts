@@ -1,4 +1,5 @@
-import { ACCOUNT_ID, envelope, parseJarInput, type JarAction } from "@/lib/jarActions";
+import { envelope, parseJarInput, type JarAction } from "@/lib/jarActions";
+import { parseNearComAccount } from "@/lib/nearcom";
 import { NEARJAR_CONTRACT } from "@/lib/near";
 
 /**
@@ -7,8 +8,10 @@ import { NEARJAR_CONTRACT } from "@/lib/near";
  */
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-  const signerId = String(body.signerId ?? "").toLowerCase();
-  if (!ACCOUNT_ID.test(signerId)) return Response.json({ ok: false, error: "Not a near.com account id." }, { status: 400 });
+  // refuse an account NEAR Intents can't credit before the owner signs anything
+  const account = parseNearComAccount(String(body.signerId ?? ""));
+  if (!account.ok) return Response.json({ ok: false, error: account.error }, { status: 400 });
+  const signerId = account.id;
 
   let action: JarAction;
   if (body.action === "close_jar") {

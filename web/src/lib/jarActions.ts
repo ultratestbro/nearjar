@@ -21,9 +21,6 @@ export type JarAction =
   | { action: "update_jar"; jar_id: string; jar: JarInput }
   | { action: "close_jar"; jar_id: string };
 
-/** NEAR account id rules; near.com accounts are named, implicit hex or 0x ids. */
-export const ACCOUNT_ID = /^(?=.{2,64}$)(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
-
 export function parseJarInput(raw: unknown): { ok: true; jar: JarInput } | { ok: false; error: string } {
   const r = (raw ?? {}) as Record<string, unknown>;
   const title = String(r.title ?? "").trim();
