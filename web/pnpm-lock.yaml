@@ -8,18 +8,21 @@ importers:
 
   .:
     dependencies:
+      '@anywalletkit/core':
+        specifier: 0.8.0
+        version: 0.8.0
       '@anywalletkit/protocol-swap2-core':
-        specifier: 0.9.0
-        version: 0.9.0(@anywalletkit/core@0.7.0)(typescript@5.9.3)(zod@4.6.7)
+        specifier: 0.10.0
+        version: 0.10.0(@anywalletkit/core@0.8.0)(typescript@5.9.3)(zod@4.6.7)
       '@anywalletkit/protocol-swap2-near-intents':
-        specifier: file:vendor/anywalletkit-protocol-swap2-near-intents-0.2.1.tgz
-        version: file:vendor/anywalletkit-protocol-swap2-near-intents-0.2.1.tgz(@anywalletkit/core@0.7.0)(typescript@5.9.3)(zod@4.6.7)
+        specifier: 0.3.0
+        version: 0.3.0(@anywalletkit/core@0.8.0)(typescript@5.9.3)(zod@4.6.7)
       '@anywalletkit/swap2-assets':
         specifier: 0.2.2
         version: 0.2.2
       '@anywalletkit/wallet-solana':
-        specifier: 0.5.1
-        version: 0.5.1(@solana/sysvars@8.5.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: 0.6.0
+        version: 0.6.0(@solana/sysvars@8.5.0(typescript@5.9.3))(typescript@5.9.3)
       '@libsql/client':
         specifier: 0.15.15
         version: 0.15.15
@@ -115,33 +118,32 @@ packages:
     resolution: {integrity: sha512-U4+70Pc5ZS9osnCBCE5Jha/ciHM+Yp+CNMNC/7HvYbNRk1Ldd+f7qO65W5qfhu/TCv+/ozljlXXe9Nj8419DMA==}
     engines: {node: '>=10'}
 
-  '@anywalletkit/core@0.7.0':
-    resolution: {integrity: sha512-DzsjP5XEcyzfOHzeIQj24ihNfseZSB90xzxAS8Z4YDaWzw3Y0NVqVV7ffzF6JhjmNSehBRmfEYnuZ8ZeOUf7WQ==}
+  '@anywalletkit/core@0.8.0':
+    resolution: {integrity: sha512-URUfrJW/c5p0zTM8fpSV0lf3brim052i4xdzIyNBwHhAMjQ0gVGrKZKDd91j6HWhLJH1aABGcVkGQzco6meIxw==}
     engines: {node: '>=22'}
 
-  '@anywalletkit/protocol-swap2-core@0.9.0':
-    resolution: {integrity: sha512-rGf4xhDoSGRh31L9RdZZP9GuAGL0csJ43WcXdOGi++hsnRuvMd7gFCZT9Z9M/6P8oegjrtvXIl0rmqrJjwQX2A==}
+  '@anywalletkit/protocol-swap2-core@0.10.0':
+    resolution: {integrity: sha512-iQYZGqDFDXIqhBw+u67A6Vy6yjpTI103Lt6aWb2DCv1OpotTCSnDZylQGUV8XYZfXQBtFPXkCXtMAd/5COBfhA==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@anywalletkit/core': 0.7.0
+      '@anywalletkit/core': 0.8.0
 
-  '@anywalletkit/protocol-swap2-near-intents@file:vendor/anywalletkit-protocol-swap2-near-intents-0.2.1.tgz':
-    resolution: {integrity: sha512-klG7YuBgxT2XaY0/d2g4fKL0eCgKEB2/41cUoKIRAQl0tTUpJUCqgh+gYVXSdxZY3QtyWd98g3+PRh7SmKWHhw==, tarball: file:vendor/anywalletkit-protocol-swap2-near-intents-0.2.1.tgz}
-    version: 0.2.1
+  '@anywalletkit/protocol-swap2-near-intents@0.3.0':
+    resolution: {integrity: sha512-Wyz8WeWQvWh6id9MJbYrJARp96HWNtbm/7oF6OnhpgCXbO8RenVdX6VtmD2mtKm2Vnj+B0S9qKQZV3I58yvoNA==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@anywalletkit/core': 0.7.0
+      '@anywalletkit/core': 0.8.0
 
   '@anywalletkit/swap2-assets@0.2.2':
     resolution: {integrity: sha512-nEOagwQMXCffhIRQRzyJtgYKuCVvmDCSORVedUyjhJdEXvkke5qKdz7jc+lsFBVE2LvVBZwwm2dGB5cgHB34FA==}
     engines: {node: '>=22'}
 
-  '@anywalletkit/tx-preview-evm@0.4.0':
-    resolution: {integrity: sha512-Dq1BFFQ4gb3B2TUt4AS1WVGCTuTbaVmNE1NU9O5ItGUcto04ps0UfNBN+m5lHmoDjn6ujiEjShXPB6z3Ag277Q==}
+  '@anywalletkit/tx-preview-evm@0.5.0':
+    resolution: {integrity: sha512-Wf3Hm0ZxSLKpGgi7MinqblSu6a/VoPnM3QqBMv+l/Fx1ZfZxyDxbHPqpTedZNGTaTJgCaeSzUPTN4mHalpj2iQ==}
     engines: {node: '>=22'}
 
-  '@anywalletkit/wallet-solana@0.5.1':
-    resolution: {integrity: sha512-iWA+5kK7HQOl1k6l9efkQ3G46leTu+X1IfKcfcDYeqCwlmIfX5/N4tVBQyq78Oax4r34GhdSGuBcRBlvbChjGQ==}
+  '@anywalletkit/wallet-solana@0.6.0':
+    resolution: {integrity: sha512-X78xUb0FEVUbA33Wg0AA06sHa+ghWiKJjE1BYZD7czpJvDTwZOqoja6lZWnmSlj1J2XwFHXBjDc0+kmdUDRF7A==}
     engines: {node: '>=22'}
 
   '@babel/code-frame@7.29.7':
@@ -3471,18 +3473,18 @@ snapshots:
 
   '@alloc/quick-lru@5.3.0': {}
 
-  '@anywalletkit/core@0.7.0':
+  '@anywalletkit/core@0.8.0':
     dependencies:
       '@noble/curves': 2.4.0
       '@noble/hashes': 2.4.0
       '@scure/bip32': 2.4.0
       '@scure/bip39': 2.4.0
 
-  '@anywalletkit/protocol-swap2-core@0.9.0(@anywalletkit/core@0.7.0)(typescript@5.9.3)(zod@4.6.7)':
+  '@anywalletkit/protocol-swap2-core@0.10.0(@anywalletkit/core@0.8.0)(typescript@5.9.3)(zod@4.6.7)':
     dependencies:
-      '@anywalletkit/core': 0.7.0
+      '@anywalletkit/core': 0.8.0
       '@anywalletkit/swap2-assets': 0.2.2
-      '@anywalletkit/tx-preview-evm': 0.4.0(typescript@5.9.3)(zod@4.6.7)
+      '@anywalletkit/tx-preview-evm': 0.5.0(typescript@5.9.3)(zod@4.6.7)
       viem: 2.57.14(typescript@5.9.3)(zod@4.6.7)
     transitivePeerDependencies:
       - bufferutil
@@ -3490,10 +3492,10 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@anywalletkit/protocol-swap2-near-intents@file:vendor/anywalletkit-protocol-swap2-near-intents-0.2.1.tgz(@anywalletkit/core@0.7.0)(typescript@5.9.3)(zod@4.6.7)':
+  '@anywalletkit/protocol-swap2-near-intents@0.3.0(@anywalletkit/core@0.8.0)(typescript@5.9.3)(zod@4.6.7)':
     dependencies:
-      '@anywalletkit/core': 0.7.0
-      '@anywalletkit/protocol-swap2-core': 0.9.0(@anywalletkit/core@0.7.0)(typescript@5.9.3)(zod@4.6.7)
+      '@anywalletkit/core': 0.8.0
+      '@anywalletkit/protocol-swap2-core': 0.10.0(@anywalletkit/core@0.8.0)(typescript@5.9.3)(zod@4.6.7)
       '@anywalletkit/swap2-assets': 0.2.2
     transitivePeerDependencies:
       - bufferutil
@@ -3503,7 +3505,7 @@ snapshots:
 
   '@anywalletkit/swap2-assets@0.2.2': {}
 
-  '@anywalletkit/tx-preview-evm@0.4.0(typescript@5.9.3)(zod@4.6.7)':
+  '@anywalletkit/tx-preview-evm@0.5.0(typescript@5.9.3)(zod@4.6.7)':
     dependencies:
       viem: 2.57.14(typescript@5.9.3)(zod@4.6.7)
     transitivePeerDependencies:
@@ -3512,9 +3514,9 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@anywalletkit/wallet-solana@0.5.1(@solana/sysvars@8.5.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@anywalletkit/wallet-solana@0.6.0(@solana/sysvars@8.5.0(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
-      '@anywalletkit/core': 0.7.0
+      '@anywalletkit/core': 0.8.0
       '@noble/curves': 2.4.0
       '@solana-program/compute-budget': 0.19.0(@solana/kit@8.5.0(typescript@5.9.3))
       '@solana-program/system': 0.15.0(@solana/kit@8.5.0(typescript@5.9.3))

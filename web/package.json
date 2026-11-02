@@ -9,10 +9,11 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@anywalletkit/protocol-swap2-core": "0.9.0",
-    "@anywalletkit/protocol-swap2-near-intents": "file:vendor/anywalletkit-protocol-swap2-near-intents-0.2.1.tgz",
+    "@anywalletkit/core": "0.8.0",
+    "@anywalletkit/protocol-swap2-core": "0.10.0",
+    "@anywalletkit/protocol-swap2-near-intents": "0.3.0",
     "@anywalletkit/swap2-assets": "0.2.2",
-    "@anywalletkit/wallet-solana": "0.5.1",
+    "@anywalletkit/wallet-solana": "0.6.0",
     "@libsql/client": "0.15.15",
     "@near-wallet-selector/core": "10.1.4",
     "@near-wallet-selector/here-wallet": "10.1.4",
