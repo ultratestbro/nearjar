@@ -34,7 +34,11 @@ fn callback_ctx() {
 fn setup() -> NearJar {
     // the contract account administers itself (nearjar.near)
     ctx(contract_id());
-    let mut c = NearJar::new(contract_id(), "intents.near".parse().unwrap(), vec![USDC.into()]);
+    let mut c = NearJar::new(
+        contract_id(),
+        "intents.near".parse().unwrap(),
+        vec![USDC.into()],
+    );
     c.add_relayer(relayer());
     c
 }
@@ -82,7 +86,9 @@ struct Ed {
 }
 impl Ed {
     fn new(seed: u8) -> Self {
-        Self { key: SigningKey::from_bytes(&[seed; 32]) }
+        Self {
+            key: SigningKey::from_bytes(&[seed; 32]),
+        }
     }
     fn account(&self) -> String {
         hex::encode(self.key.verifying_key().as_bytes())
@@ -104,7 +110,9 @@ struct Evm {
 }
 impl Evm {
     fn new(seed: u8) -> Self {
-        Self { key: k256::ecdsa::SigningKey::from_bytes(&[seed; 32].into()).unwrap() }
+        Self {
+            key: k256::ecdsa::SigningKey::from_bytes(&[seed; 32].into()).unwrap(),
+        }
     }
     fn account(&self) -> String {
         let pk = self.key.verifying_key().to_encoded_point(false);
@@ -170,7 +178,12 @@ fn create_with_erc191_evm() {
 fn replayed_nonce_is_rejected() {
     let mut c = setup();
     let ed = Ed::new(1);
-    let signed = ed.sign(&envelope(&ed.account(), 1, NOW + 5 * MIN, create_action("Cats")));
+    let signed = ed.sign(&envelope(
+        &ed.account(),
+        1,
+        NOW + 5 * MIN,
+        create_action("Cats"),
+    ));
     ctx(relayer());
     let _ = c.submit(signed.clone());
     let _ = c.submit(signed);
@@ -280,18 +293,32 @@ fn owner_updates_and_closes() {
     let payload = envelope(&owner.account(), 1, NOW + 5 * MIN, create_action("Cats"));
     let id = create_ok(&mut c, &owner.account(), owner.sign(&payload));
 
-    let update = serde_json::json!({ "action": "update_jar", "jar_id": id, "jar": jar_input("Cats 2") });
+    let update =
+        serde_json::json!({ "action": "update_jar", "jar_id": id, "jar": jar_input("Cats 2") });
     ctx(relayer());
-    let _ = c.submit(owner.sign(&envelope(&owner.account(), 2, NOW + 5 * MIN, update.clone())));
+    let _ = c.submit(owner.sign(&envelope(
+        &owner.account(),
+        2,
+        NOW + 5 * MIN,
+        update.clone(),
+    )));
     callback_ctx();
-    c.on_key_checked(owner.account().parse().unwrap(), serde_json::from_value(update).unwrap(), Ok(true));
+    c.on_key_checked(
+        owner.account().parse().unwrap(),
+        serde_json::from_value(update).unwrap(),
+        Ok(true),
+    );
     assert_eq!(c.get_jar(id).unwrap().input.title, "Cats 2");
 
     let close = serde_json::json!({ "action": "close_jar", "jar_id": id });
     ctx(relayer());
     let _ = c.submit(owner.sign(&envelope(&owner.account(), 3, NOW + 5 * MIN, close.clone())));
     callback_ctx();
-    c.on_key_checked(owner.account().parse().unwrap(), serde_json::from_value(close).unwrap(), Ok(true));
+    c.on_key_checked(
+        owner.account().parse().unwrap(),
+        serde_json::from_value(close).unwrap(),
+        Ok(true),
+    );
     assert_eq!(c.get_jar(id).unwrap().status, JarStatus::Closed);
 }
 

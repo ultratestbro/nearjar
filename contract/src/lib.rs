@@ -18,9 +18,9 @@ use defuse_core::{
     payload::{ExtractDefusePayload, SignedPayload, multi::MultiPayload},
 };
 use near_sdk::{
-    AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseError, env,
+    AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseError, env, ext_contract,
     json_types::{U64, U128},
-    ext_contract, near, require,
+    near, require,
     store::{IterableSet, LookupMap, LookupSet},
 };
 
@@ -306,12 +306,11 @@ impl NearJar {
 
         let index = jar.donations_count.0;
         jar.donations_count = U64(index + 1);
-        jar.raised_usd_cents = U64(
-            jar.raised_usd_cents
-                .0
-                .checked_add(donation.usd_cents.0)
-                .unwrap_or_else(|| env::panic_str("overflow")),
-        );
+        jar.raised_usd_cents = U64(jar
+            .raised_usd_cents
+            .0
+            .checked_add(donation.usd_cents.0)
+            .unwrap_or_else(|| env::panic_str("overflow")));
         let record = Donation {
             jar_id,
             index: U64(index),
