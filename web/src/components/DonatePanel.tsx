@@ -5,6 +5,10 @@ import type { ReceiveAsset, SourceAsset } from "@/lib/assets";
 import { PAYERS, familyOf, type PayInstruction, type Payer } from "@/lib/pay";
 import { DonationStatus, type PublicDonation } from "./DonationStatus";
 import { ManualDeposit } from "./ManualDeposit";
+import { Icon } from "./ui";
+
+// shown as tiles; every other network is in "More"
+const POPULAR = ["eip155:8453", "eip155:1", "eip155:42161", "solana:mainnet", "tron:728126428", "ton:-239", "near:mainnet", "bitcoin:mainnet"];
 
 const PRESETS = [5, 10, 25, 50];
 
@@ -18,8 +22,8 @@ type Quote = {
 
 export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sources: SourceAsset[]; open: boolean }) {
   const chains = useMemo(() => {
-    const seen = new Map<string, { chain: string; label: string }>();
-    for (const s of props.sources) if (!seen.has(s.chain)) seen.set(s.chain, { chain: s.chain, label: s.chainLabel });
+    const seen = new Map<string, { chain: string; label: string; icon: string }>();
+    for (const s of props.sources) if (!seen.has(s.chain)) seen.set(s.chain, { chain: s.chain, label: s.chainLabel, icon: s.chainIcon });
     return [...seen.values()];
   }, [props.sources]);
 
@@ -51,14 +55,17 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
   // chains without a browser wallet (Zcash, Litecoin, Doge, XRP…) are paid by sending manually
   const manual = manualOpen || !payerDef;
 
+  // depend on strings: `token` is a fresh object every render and would restart (and abort) the quote forever
+  const srcChain = token?.chain ?? "";
+  const srcSymbol = token?.symbol ?? "";
   useEffect(() => {
-    if (!quotable || !token) return;
+    if (!quotable || !srcChain) return;
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
       setLoading(true);
       setError("");
       try {
-        const data = (await post("/api/quote", { jarId: props.jarId, usdCents, sourceChain: token.chain, sourceSymbol: token.symbol, dry: true }, ctrl.signal)) as {
+        const data = (await post("/api/quote", { jarId: props.jarId, usdCents, sourceChain: srcChain, sourceSymbol: srcSymbol, dry: true }, ctrl.signal)) as {
           ok: boolean;
           quote?: Quote;
           error?: string;
@@ -78,7 +85,7 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [props.jarId, token, usdCents, quotable]);
+  }, [props.jarId, srcChain, srcSymbol, usdCents, quotable]);
 
   async function onConnect() {
     if (!payerDef) return;
@@ -157,45 +164,64 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
   const receiveOut = quote ? formatUnits(BigInt(quote.amountOut), props.receive.decimals) : null;
 
   return (
-    <aside className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-5">
-      <h2 className="text-lg font-semibold">Donate</h2>
+    <aside className="flex flex-col gap-5 rounded-3xl border border-line bg-surface p-6">
+      <h2 className="text-xl font-semibold">Donate</h2>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm text-muted" htmlFor="usd">Amount (USD)</label>
-        <div className="flex gap-2">
+        <label className="flex items-center rounded-2xl border border-line bg-surface-2 px-4 focus-within:border-accent" htmlFor="usd">
+          <span className="text-3xl text-muted">$</span>
+          <input id="usd" inputMode="decimal" value={usd} onChange={(e) => setUsd(e.target.value.replace(/[^\d.]/g, ""))} aria-label="Amount in US dollars"
+            className="w-full bg-transparent px-2 py-3 text-3xl font-semibold outline-none" />
+          <span className="text-sm text-muted">USD</span>
+        </label>
+        <div className="grid grid-cols-4 gap-2">
           {PRESETS.map((p) => (
             <button key={p} type="button" onClick={() => setUsd(String(p))}
-              className={`rounded-full border px-3 py-1.5 text-sm ${usd === String(p) ? "border-accent text-accent" : "border-line"}`}>
+              className={`rounded-xl border py-2 text-sm ${usd === String(p) ? "border-accent bg-accent/10 text-accent" : "border-line hover:bg-surface-2"}`}>
               ${p}
             </button>
           ))}
         </div>
-        <input id="usd" inputMode="decimal" value={usd} onChange={(e) => setUsd(e.target.value.replace(/[^\d.]/g, ""))}
-          className="rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-lg outline-none focus:border-accent" />
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <label className="flex flex-col gap-1 text-sm text-muted">
-          Pay on
-          <select value={chain} onChange={(e) => setChain(e.target.value)} className="rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-text">
-            {chains.map((c) => (
-              <option key={c.chain} value={c.chain}>{c.label}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-muted">
-          With
-          <select value={token?.symbol ?? ""} onChange={(e) => setSymbol(e.target.value)} className="rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-text">
-            {tokens.map((t) => (
-              <option key={t.symbol} value={t.symbol}>{t.symbol}</option>
-            ))}
-          </select>
-        </label>
+      <div className="flex flex-col gap-2">
+        <p className="text-sm text-muted">Pay from</p>
+        <div className="grid grid-cols-4 gap-2">
+          {POPULAR.map((id) => chains.find((c) => c.chain === id)).filter((c) => c !== undefined).map((c) => (
+            <button key={c.chain} type="button" onClick={() => setChain(c.chain)} title={c.label}
+              className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-xs ${chain === c.chain ? "border-accent bg-accent/10" : "border-line hover:bg-surface-2"}`}>
+              <Icon src={c.icon} alt={c.label} size={24} />
+              <span className="w-full truncate text-center">{c.label}</span>
+            </button>
+          ))}
+        </div>
+        <select value={POPULAR.includes(chain) ? "" : chain} onChange={(e) => e.target.value && setChain(e.target.value)} aria-label="More networks"
+          className={`rounded-xl border bg-surface-2 px-3 py-2 text-sm ${POPULAR.includes(chain) ? "border-line text-muted" : "border-accent text-text"}`}>
+          <option value="">More networks — Zcash, Litecoin, Doge, XRP…</option>
+          {chains.filter((c) => !POPULAR.includes(c.chain)).map((c) => (
+            <option key={c.chain} value={c.chain}>{c.label}</option>
+          ))}
+        </select>
       </div>
 
-      <div className="min-h-24 rounded-xl bg-surface-2 p-4 text-sm">
+      <div className="flex flex-wrap gap-2">
+        {tokens.map((t) => (
+          <button key={t.symbol} type="button" onClick={() => setSymbol(t.symbol)}
+            className={`flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3 text-sm ${token?.symbol === t.symbol ? "border-accent bg-accent/10" : "border-line hover:bg-surface-2"}`}>
+            <Icon src={t.icon} alt={t.symbol} size={22} />
+            {t.symbol}
+          </button>
+        ))}
+      </div>
+
+      <div className="min-h-28 rounded-2xl bg-surface-2 p-4 text-sm">
         {amountError && <p className="text-danger">{amountError}</p>}
-        {!amountError && loading && <p className="text-muted">Getting a quote…</p>}
+        {!amountError && loading && (
+          <div className="flex items-center gap-3 text-muted">
+            <span className="size-4 animate-spin rounded-full border-2 border-line border-t-accent" />
+            Finding the best route on NEAR Intents…
+          </div>
+        )}
         {quotable && !loading && !quote && error && <p className="text-danger">{error}</p>}
         {quotable && !loading && quote && token && (
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
@@ -228,7 +254,7 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
           </label>
           <p className="text-xs text-muted">Use a wallet you control, not an exchange deposit address.</p>
           <button type="button" onClick={onManual} disabled={!quote || !refund.trim() || !!busy}
-            className="rounded-full bg-accent px-5 py-3 font-medium text-accent-ink disabled:opacity-50">
+            className="rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105 disabled:opacity-50">
             {busy || "Get deposit address"}
           </button>
           {payerDef && (
@@ -238,14 +264,14 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
           )}
         </div>
       ) : !props.open ? (
-        <button type="button" disabled className="rounded-full bg-accent px-5 py-3 font-medium text-accent-ink opacity-50">Jar is closed</button>
+        <button type="button" disabled className="rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105 opacity-50">Jar is closed</button>
       ) : !connected ? (
-        <button type="button" onClick={onConnect} className="rounded-full bg-accent px-5 py-3 font-medium text-accent-ink">
+        <button type="button" onClick={onConnect} className="rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105">
           Connect {payerDef?.label ?? "wallet"}
         </button>
       ) : (
         <button type="button" onClick={onPay} disabled={!quote || !!busy}
-          className="rounded-full bg-accent px-5 py-3 font-medium text-accent-ink disabled:opacity-50">
+          className="rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105 disabled:opacity-50">
           {busy || `Pay ${quote?.amountInFormatted ?? ""} ${token?.symbol ?? ""}`}
         </button>
       )}

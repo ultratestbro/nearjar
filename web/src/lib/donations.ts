@@ -231,6 +231,34 @@ function hashOf(e: unknown): string | null {
   return typeof h === "string" ? h : null;
 }
 
+/** A delivered donation as the jar page lists it (names and messages are donor-supplied text). */
+export interface FeedItem {
+  id: string;
+  name: string | null;
+  message: string | null;
+  usdCents: number;
+  sourceChain: string;
+  sourceSymbol: string;
+  at: number;
+}
+
+export async function jarFeed(jarId: string, limit = 20): Promise<FeedItem[]> {
+  const r = await (await db()).execute({
+    sql: `SELECT id, donor_name, message, COALESCE(delivered_usd_cents, usd_cents) AS usd, source_chain, source_symbol, updated_at
+      FROM donations WHERE jar_id = ? AND status = 'delivered' AND hidden = 0 ORDER BY updated_at DESC LIMIT ?`,
+    args: [jarId, limit],
+  });
+  return r.rows.map((x) => ({
+    id: String(x.id),
+    name: (x.donor_name as string | null) ?? null,
+    message: (x.message as string | null) ?? null,
+    usdCents: Number(x.usd),
+    sourceChain: String(x.source_chain),
+    sourceSymbol: String(x.source_symbol),
+    at: Number(x.updated_at),
+  }));
+}
+
 export interface PublicDonation {
   id: string;
   jarId: string;

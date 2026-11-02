@@ -76,8 +76,8 @@ export function CreateJar({ assets }: { assets: readonly ReceiveAsset[] }) {
   }
 
   return (
-    <div className="flex max-w-xl flex-col gap-6">
-      <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5">
+    <div className="flex max-w-2xl flex-col gap-6">
+      <section className="flex flex-col gap-3 rounded-3xl border border-line bg-surface p-6">
         <h2 className="font-semibold">1. Connect the wallet you use for near.com</h2>
         {wallet ? (
           <div className="text-sm">
@@ -99,7 +99,7 @@ export function CreateJar({ assets }: { assets: readonly ReceiveAsset[] }) {
         )}
       </section>
 
-      <section className={`flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5 ${wallet ? "" : "opacity-50"}`}>
+      <section className={`flex flex-col gap-3 rounded-3xl border border-line bg-surface p-6 ${wallet ? "" : "opacity-50"}`}>
         <h2 className="font-semibold">2. Describe the jar</h2>
         <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} placeholder="Title"
           className="rounded-xl border border-line bg-surface-2 px-3 py-2.5 outline-none focus:border-accent" />

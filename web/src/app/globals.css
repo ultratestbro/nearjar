@@ -28,6 +28,13 @@
 }
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 500px at 50% -200px, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+    var(--bg);
   color: var(--text);
+  font-size: 16px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
 }

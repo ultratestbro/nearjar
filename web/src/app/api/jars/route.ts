@@ -1,3 +1,5 @@
+import { ACCOUNT_ID } from "@/lib/jarActions";
+import { getJarsByOwner } from "@/lib/jars";
 import { relayCall } from "@/lib/near";
 
 const STANDARDS = new Set(["erc191", "raw_ed25519", "nep413", "ton_connect", "tip191", "sep53", "webauthn"]);
@@ -31,4 +33,13 @@ export async function POST(request: Request) {
   const res = await relayCall<string>("submit", { signed }, 100);
   if (!res.ok) return Response.json({ ok: false, error: res.error, txHash: res.txHash }, { status: 422 });
   return Response.json({ ok: true, jarId: res.value, txHash: res.txHash });
+}
+
+/** GET ?owner=<near.com account> → that owner's jars, straight from the contract. */
+export async function GET(request: Request) {
+  const owner = (new URL(request.url).searchParams.get("owner") ?? "").toLowerCase();
+  if (!ACCOUNT_ID.test(owner)) return Response.json({ ok: false, error: "Not a near.com account id." }, { status: 400 });
+  const jars = await getJarsByOwner(owner).catch(() => null);
+  if (!jars) return Response.json({ ok: false, error: "Could not read the contract." }, { status: 502 });
+  return Response.json({ ok: true, jars });
 }
