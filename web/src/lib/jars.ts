@@ -1,5 +1,9 @@
 import "server-only";
 
+import { NEARJAR_CONTRACT, view } from "./near";
+
+export { NEARJAR_CONTRACT };
+
 export interface Jar {
   id: string;
   owner: string; // near.com (intents.near) account
@@ -15,35 +19,9 @@ export interface Jar {
   donations_count: string;
 }
 
-export const NEARJAR_CONTRACT = process.env.NEARJAR_CONTRACT ?? "nearjar.near";
-const RPC = process.env.NEAR_RPC_URL ?? "https://rpc.mainnet.near.org";
-
-async function view<T>(contract: string, method: string, args: unknown): Promise<T> {
-  const res = await fetch(RPC, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "nearjar",
-      method: "query",
-      params: {
-        request_type: "call_function",
-        finality: "final",
-        account_id: contract,
-        method_name: method,
-        args_base64: Buffer.from(JSON.stringify(args)).toString("base64"),
-      },
-    }),
-    signal: AbortSignal.timeout(10_000),
-  });
-  const body = (await res.json()) as { result?: { result: number[] }; error?: unknown };
-  if (!body.result) throw new Error(`view ${method} failed: ${JSON.stringify(body.error).slice(0, 200)}`);
-  return JSON.parse(Buffer.from(body.result.result).toString()) as T;
-}
-
 /**
- * Until the contract is deployed, NEARJAR_DEMO_OWNER serves one demo jar (id "demo") paying
- * that near.com account, so the donor flow can be tried end to end.
+ * NEARJAR_DEMO_OWNER serves one demo jar (id "demo") paying that near.com account, so the donor
+ * flow can be tried without creating a jar.
  */
 function demoJar(): Jar | null {
   const owner = process.env.NEARJAR_DEMO_OWNER;
@@ -67,5 +45,9 @@ function demoJar(): Jar | null {
 export async function getJar(id: string): Promise<Jar | null> {
   if (id === "demo") return demoJar();
   if (!/^\d{1,19}$/.test(id)) return null;
-  return view<Jar | null>(NEARJAR_CONTRACT, "get_jar", { jar_id: id });
+  return view<Jar | null>("get_jar", { jar_id: id });
+}
+
+export async function getJarsByOwner(owner: string): Promise<Jar[]> {
+  return view<Jar[]>("get_jars_by_owner", { owner });
 }
