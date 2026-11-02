@@ -1,4 +1,5 @@
 import { connectEvmPayer } from "./evm";
+import { connectNearPayer } from "./near";
 import { connectSolanaPayer } from "./solana";
 import { connectTonPayer } from "./ton";
 import { connectTronPayer } from "./tron";
@@ -12,4 +13,5 @@ export const PAYERS: Record<string, { label: string; connect: () => Promise<Paye
   solana: { label: "Solana wallet", connect: connectSolanaPayer },
   tron: { label: "TronLink", connect: connectTronPayer },
   ton: { label: "TON wallet", connect: connectTonPayer },
+  near: { label: "NEAR wallet (Meteor)", connect: () => connectNearPayer("meteor-wallet") },
 };

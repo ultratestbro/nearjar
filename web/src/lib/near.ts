@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Account, getTransactionLastResult, type KeyPairString } from "near-api-js";
+import { Account, getTransactionLastResult, type KeyPairString } from "near-api-js-v7";
 
 export const NEARJAR_CONTRACT = process.env.NEARJAR_CONTRACT ?? "nearjar.near";
 export const NEAR_NETWORK = process.env.NEARJAR_NETWORK === "testnet" ? "testnet" : "mainnet";
