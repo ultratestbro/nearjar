@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReceiveAsset, SourceAsset } from "@/lib/assets";
 import { PAYERS, familyOf, type PayInstruction, type Payer } from "@/lib/pay";
 import { DonationStatus, type PublicDonation } from "./DonationStatus";
+import { ManualDeposit } from "./ManualDeposit";
 
 const PRESETS = [5, 10, 25, 50];
 
@@ -37,6 +38,9 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
   const [payer, setPayer] = useState<Payer | null>(null);
   const [busy, setBusy] = useState("");
   const [donation, setDonation] = useState<PublicDonation | null>(null);
+  const [manualPay, setManualPay] = useState<PayInstruction | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [refund, setRefund] = useState("");
 
   const usdCents = Math.round(Number(usd) * 100);
   const amountError = usdCents > 0 && usdCents < 100 ? "Minimum is $1." : usdCents > 1_000_000 ? "Maximum is $10,000." : "";
@@ -44,6 +48,8 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
   const family = token ? familyOf(token.chain) : "";
   const payerDef = PAYERS[family];
   const connected = payer && payer.family === family ? payer : null;
+  // chains without a browser wallet (Zcash, Litecoin, Doge, XRP…) are paid by sending manually
+  const manual = manualOpen || !payerDef;
 
   useEffect(() => {
     if (!quotable || !token) return;
@@ -112,7 +118,41 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
     }
   }
 
-  if (donation) return <DonationStatus initial={donation} receive={props.receive} {...(quote ? { etaSeconds: quote.etaSeconds } : {})} />;
+  async function onManual() {
+    if (!token) return;
+    setError("");
+    try {
+      setBusy("Getting a deposit address…");
+      const res = (await post("/api/donations", {
+        jarId: props.jarId,
+        usdCents,
+        sourceChain: token.chain,
+        sourceSymbol: token.symbol,
+        refundAddress: refund.trim(),
+        method: "Manual",
+        name,
+        message,
+      })) as { ok: boolean; donation?: PublicDonation; pay?: PayInstruction; error?: string };
+      if (!res.ok || !res.donation || !res.pay) throw new Error(res.error ?? "Could not start the donation.");
+      setManualPay(res.pay);
+      setDonation(res.donation);
+    } catch (e) {
+      setError(errText(e, "Could not start the donation."));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  if (donation) {
+    const status = <DonationStatus initial={donation} receive={props.receive} {...(quote ? { etaSeconds: quote.etaSeconds } : {})} />;
+    if (!manualPay || !token) return status;
+    return (
+      <div className="flex flex-col gap-4">
+        <ManualDeposit pay={manualPay} chainLabel={token.chainLabel} />
+        {status}
+      </div>
+    );
+  }
 
   const receiveOut = quote ? formatUnits(BigInt(quote.amountOut), props.receive.decimals) : null;
 
@@ -179,15 +219,29 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
       </div>
 
       {error && (quote || !quotable) && <p className="text-sm text-danger">{error}</p>}
-      {!props.open ? (
+      {props.open && manual ? (
+        <div className="flex flex-col gap-2">
+          <label className="flex flex-col gap-1 text-sm text-muted">
+            Your {token?.chainLabel ?? ""} address for refunds
+            <input value={refund} onChange={(e) => setRefund(e.target.value)} placeholder="Where a failed donation goes back"
+              className="rounded-xl border border-line bg-surface-2 px-3 py-2 font-mono text-sm text-text outline-none focus:border-accent" />
+          </label>
+          <p className="text-xs text-muted">Use a wallet you control, not an exchange deposit address.</p>
+          <button type="button" onClick={onManual} disabled={!quote || !refund.trim() || !!busy}
+            className="rounded-full bg-accent px-5 py-3 font-medium text-accent-ink disabled:opacity-50">
+            {busy || "Get deposit address"}
+          </button>
+          {payerDef && (
+            <button type="button" onClick={() => setManualOpen(false)} className="text-sm text-muted underline">
+              Pay with a wallet instead
+            </button>
+          )}
+        </div>
+      ) : !props.open ? (
         <button type="button" disabled className="rounded-full bg-accent px-5 py-3 font-medium text-accent-ink opacity-50">Jar is closed</button>
-      ) : !payerDef ? (
-        <button type="button" disabled className="rounded-full bg-accent px-5 py-3 font-medium text-accent-ink opacity-50">
-          Wallet payments from this chain land soon
-        </button>
       ) : !connected ? (
         <button type="button" onClick={onConnect} className="rounded-full bg-accent px-5 py-3 font-medium text-accent-ink">
-          Connect {payerDef.label}
+          Connect {payerDef?.label ?? "wallet"}
         </button>
       ) : (
         <button type="button" onClick={onPay} disabled={!quote || !!busy}
@@ -195,7 +249,12 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
           {busy || `Pay ${quote?.amountInFormatted ?? ""} ${token?.symbol ?? ""}`}
         </button>
       )}
-      {connected && <p className="break-all text-xs text-muted">Paying from {connected.address}. Refunds, if any, go back here.</p>}
+      {connected && !manual && <p className="break-all text-xs text-muted">Paying from {connected.address}. Refunds, if any, go back here.</p>}
+      {props.open && !manual && (
+        <button type="button" onClick={() => setManualOpen(true)} className="text-sm text-muted underline">
+          Or send it yourself (any wallet or exchange)
+        </button>
+      )}
       <p className="text-xs text-muted">Quotes are live from NEAR Intents. Nothing is charged until you confirm in your wallet.</p>
     </aside>
   );

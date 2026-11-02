@@ -93,6 +93,7 @@ export async function quoteDonation(input: {
 }
 
 function friendly(refusal: string): string {
+  if (/refundTo is not valid/i.test(refusal)) return "That refund address doesn't look right for this network.";
   if (/1Click 5\d\d|network error|threw/i.test(refusal)) return "NEAR Intents is not answering right now. Try again in a minute.";
   if (/does not list|paused/i.test(refusal)) return "This token can't be routed right now.";
   if (/no liquidity|amount is too low|too small/i.test(refusal)) return "No route for this amount. Try a larger one.";

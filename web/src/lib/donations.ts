@@ -139,7 +139,8 @@ export async function refreshDonation(id: string): Promise<DonationRow | null> {
   else if (s.status === "REFUNDED") status = "refunded";
   else if (s.status === "FAILED") status = "failed";
   else if (s.status === "PROCESSING" || s.status === "KNOWN_DEPOSIT_TX" || s.status === "INCOMPLETE_DEPOSIT") status = "processing";
-  else if (s.status === "PENDING_DEPOSIT" && Date.now() > d.valid_until + 30 * 60_000 && !d.source_tx) status = "expired";
+  // 1Click keeps a deposit address open for the quote's 60-minute deadline (the SDK asks for 60)
+  else if (s.status === "PENDING_DEPOSIT" && Date.now() > d.created_at + 75 * 60_000 && !d.source_tx) status = "expired";
 
   await (await db()).execute({
     sql: `UPDATE donations SET status = ?, amount_out = COALESCE(?, amount_out), delivered_usd_cents = COALESCE(?, delivered_usd_cents),
