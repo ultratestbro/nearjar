@@ -9,6 +9,6 @@ pnpm dev                     # http://localhost:3000/j/demo
 ```
 
 Quotes come from NEAR Intents (1Click) through the Any Wallet Kit provider
-`@anywalletkit/protocol-swap2-near-intents` with `recipientType: "INTENTS"`, which credits the jar owner's
-near.com (intents.near) account directly. Until that option ships on npm, the package is vendored from the SDK
-branch in `vendor/`.
+`@anywalletkit/protocol-swap2-near-intents` (npm, ≥0.3.0). With a 1Click partner JWT (`ONE_CLICK_JWT`) it runs
+with `recipientType: "CONFIDENTIAL_INTENTS"` and credits the jar owner's Confidential near.com balance;
+without one, `"INTENTS"` credits the public intents.near balance (near.com shows it as "legacy").

@@ -13,7 +13,19 @@ A near.com account is an account inside the `intents.near` contract, derived fro
 | NEAR | the NEAR account id (named or implicit) |
 | Passkey | not supported yet (maybe at the end) |
 
-Verified 2026-11-02: a dry 1Click quote with `recipient: 0x63428e70…a299`, `recipientType: INTENTS` (5 USDC Solana → USDC on NEAR) returns ~4.9995 USDC in ~20 s. `CONFIDENTIAL_INTENTS` to a third party is refused (401, needs the recipient's session), so confidential donations are out of scope.
+Verified 2026-11-02: a dry 1Click quote with `recipient: 0x63428e70…a299`, `recipientType: INTENTS` (5 USDC Solana → USDC on NEAR) returns ~4.9995 USDC in ~20 s.
+
+near.com keeps funds in the **Confidential** balance; an `INTENTS` credit shows there as a "legacy" balance the owner must move. `recipientType: CONFIDENTIAL_INTENTS` credits the Confidential balance directly. What 1Click answers (2026-11-02):
+
+| Request | Answer |
+|---|---|
+| no auth | 401 "User authentication is required for confidential intent quotes" |
+| the user's User-Session token in `Authorization` | "Invalid token" — that header is partner auth |
+| 1Click **partner JWT** | quotes for the owner's account **and for an unrelated account** (third party); live donation $5 ETH (Ethereum) → USDT delivered `SUCCESS` and shown in the owner's Confidential near.com balance |
+
+So confidential delivery to a jar owner needs NearJar's partner JWT (`ONE_CLICK_JWT`), not the owner's session. With it NearJar uses `CONFIDENTIAL_INTENTS`; without it, `INTENTS`.
+
+Recipient rule (Any Wallet Kit near-intents ≥0.3.0, both modes, `destChain: near:mainnet`): a dotted name (`name.near`), a 64-hex implicit id or a lowercase `0x` + 40 hex id. NearJar canonicalises input (`nearcom:` prefix, any case) with `lib/nearcom.ts` and refuses top-level names before the owner signs.
 
 ## Creator
 
@@ -54,7 +66,7 @@ The contract cannot verify a payment on another chain, so receipts for a/b are r
 
 ## Money
 
-- Service fee: 0. 1Click charges 0.2% without a partner JWT.
+- Service fee: 0. 1Click charges 0.2% without a partner JWT; NearJar uses one, so there is no 1Click fee either.
 - Minimum donation: $1.
 - Funds always go straight to the creator's near.com balance; NearJar never holds them.
 
