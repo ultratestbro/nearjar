@@ -6,7 +6,7 @@ import type { Jar } from "./jars";
 import { tokenPrices, usdToUnits } from "./prices";
 
 /** Any Wallet Kit's NEAR Intents provider, crediting the jar owner's near.com account. */
-const toNearCom = nearIntentsProvider({
+export const toNearCom = nearIntentsProvider({
   recipientType: "INTENTS",
   ...(process.env.ONE_CLICK_API_URL ? { apiUrl: process.env.ONE_CLICK_API_URL } : {}),
   ...(process.env.ONE_CLICK_JWT ? { jwt: process.env.ONE_CLICK_JWT } : {}),

@@ -21,6 +21,7 @@ export interface SourceAsset {
   chainIcon: string;
   symbol: string;
   assetId: string; // 1Click / intents.near id
+  contract: string | null; // token contract / mint / jetton master; null = native
   decimals: number;
   icon: string;
 }
@@ -35,6 +36,7 @@ export const SOURCE_ASSETS: SourceAsset[] = CC_SOURCE_CHAINS.flatMap((c) =>
       chainIcon: c.icon ?? "",
       symbol: a.symbol,
       assetId: a.assetId,
+      contract: a.contract ?? null,
       decimals: a.decimals,
       icon: a.icon ?? c.icon ?? "",
     })),
