@@ -153,6 +153,12 @@ export async function refreshDonation(id: string): Promise<DonationRow | null> {
 
 async function recordOnChain(d: DonationRow): Promise<void> {
   if (d.jar_id === "demo") return; // the demo jar is not in the contract
+  // Claim the write first: two status polls must not both relay it.
+  const claim = await (await db()).execute({
+    sql: "UPDATE donations SET recorded_tx = 'pending', updated_at = ? WHERE id = ? AND recorded_tx IS NULL",
+    args: [Date.now(), d.id],
+  });
+  if (claim.rowsAffected !== 1) return;
   const res = await relayCall<string>(
     "record_donation",
     {
@@ -169,9 +175,11 @@ async function recordOnChain(d: DonationRow): Promise<void> {
     30,
   );
   const tx = res.ok ? res.txHash : /already recorded/.test(res.error) ? "already-recorded" : null;
-  if (tx) {
-    await (await db()).execute({ sql: "UPDATE donations SET recorded_tx = ?, updated_at = ? WHERE id = ?", args: [tx, Date.now(), d.id] });
-  }
+  // on a real failure release the claim so the next poll retries
+  await (await db()).execute({
+    sql: "UPDATE donations SET recorded_tx = ?, updated_at = ? WHERE id = ? AND recorded_tx = 'pending'",
+    args: [tx, Date.now(), d.id],
+  });
 }
 
 interface Status {
@@ -250,7 +258,7 @@ export function toPublic(d: DonationRow): PublicDonation {
     depositAddress: d.deposit_address,
     sourceTx: d.source_tx,
     deliveryTx: d.delivery_tx,
-    recordedTx: d.recorded_tx,
+    recordedTx: d.recorded_tx === "pending" ? null : d.recorded_tx,
   };
 }
 
