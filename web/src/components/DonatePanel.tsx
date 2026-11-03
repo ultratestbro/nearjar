@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReceiveAsset, SourceAsset } from "@/lib/assets";
-import { PAYERS, familyOf, type PayInstruction, type Payer } from "@/lib/pay";
+import { PAYERS, evmPayer, familyOf, solanaPayer, type PayInstruction, type Payer } from "@/lib/pay";
 import { DonationStatus, type PublicDonation } from "./DonationStatus";
 import { ManualDeposit } from "./ManualDeposit";
-import { Icon } from "./ui";
+import { Select } from "./Select";
+import { Icon, shortAccount } from "./ui";
+import { WalletOptions } from "./WalletMenu";
+import { useWallet } from "./WalletProvider";
 
 // shown as tiles; every other network is in "More"
 const POPULAR = ["eip155:8453", "eip155:1", "eip155:42161", "solana:mainnet", "tron:728126428", "ton:-239", "near:mainnet", "bitcoin:mainnet"];
@@ -51,9 +54,24 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
   const quotable = !!token && usdCents >= 100 && usdCents <= 1_000_000;
   const family = token ? familyOf(token.chain) : "";
   const payerDef = PAYERS[family];
-  const connected = payer && payer.family === family ? payer : null;
+  // EVM and Solana pay through the wallet picked in the shared picker (logos, remembered on reload)
+  const { wallet } = useWallet();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const shared = family === "evm" || family === "solana";
+  const walletPayer = useMemo<Payer | null>(() => {
+    if (!wallet) return null;
+    try {
+      if (wallet.evm) return evmPayer(wallet.evm, wallet.address, wallet.name);
+      if (wallet.solana) return solanaPayer(wallet.solana.wallet, wallet.solana.account);
+    } catch {
+      // a wallet that can sign messages but not send transactions: fall back to the picker
+    }
+    return null;
+  }, [wallet]);
+  const sharedPayer = walletPayer?.family === family ? walletPayer : null;
+  const connected = shared ? sharedPayer : payer && payer.family === family ? payer : null;
   // chains without a browser wallet (Zcash, Litecoin, Doge, XRP…) are paid by sending manually
-  const manual = manualOpen || !payerDef;
+  const manual = manualOpen || (!shared && !payerDef);
 
   // depend on strings: `token` is a fresh object every render and would restart (and abort) the quote forever
   const srcChain = token?.chain ?? "";
@@ -195,13 +213,13 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
             </button>
           ))}
         </div>
-        <select value={POPULAR.includes(chain) ? "" : chain} onChange={(e) => e.target.value && setChain(e.target.value)} aria-label="More networks"
-          className={`rounded-xl border bg-surface-2 px-3 py-2 text-sm ${POPULAR.includes(chain) ? "border-line text-muted" : "border-accent text-text"}`}>
-          <option value="">More networks — Zcash, Litecoin, Doge, XRP…</option>
-          {chains.filter((c) => !POPULAR.includes(c.chain)).map((c) => (
-            <option key={c.chain} value={c.chain}>{c.label}</option>
-          ))}
-        </select>
+        <Select
+          label="More networks"
+          value={POPULAR.includes(chain) ? "" : chain}
+          onChange={setChain}
+          placeholder="More networks — Zcash, Litecoin, Doge, XRP…"
+          options={chains.filter((c) => !POPULAR.includes(c.chain)).map((c) => ({ value: c.chain, label: c.label, icon: c.icon }))}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -257,7 +275,7 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
             className="rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105 disabled:opacity-50">
             {busy || "Get deposit address"}
           </button>
-          {payerDef && (
+          {(shared || payerDef) && (
             <button type="button" onClick={() => setManualOpen(false)} className="text-sm text-muted underline">
               Pay with a wallet instead
             </button>
@@ -265,17 +283,35 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
         </div>
       ) : !props.open ? (
         <button type="button" disabled className="rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105 opacity-50">Jar is closed</button>
+      ) : !connected && shared ? (
+        <div className="flex flex-col gap-2">
+          <button type="button" onClick={() => setPickerOpen((v) => !v)} aria-expanded={pickerOpen}
+            className="rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105">
+            Connect a {family === "evm" ? "EVM" : "Solana"} wallet
+          </button>
+          {pickerOpen && (
+            <div className="rounded-2xl border border-line bg-surface-2/40 p-3">
+              <WalletOptions families={[family as "evm" | "solana"]} onPicked={() => setPickerOpen(false)} />
+            </div>
+          )}
+        </div>
       ) : !connected ? (
         <button type="button" onClick={onConnect} className="rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105">
           Connect {payerDef?.label ?? "wallet"}
         </button>
       ) : (
         <button type="button" onClick={onPay} disabled={!quote || !!busy}
-          className="rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105 disabled:opacity-50">
+          className="flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105 disabled:opacity-50">
+          {busy && <span className="size-4 animate-spin rounded-full border-2 border-accent-ink/30 border-t-accent-ink" />}
           {busy || `Pay ${quote?.amountInFormatted ?? ""} ${token?.symbol ?? ""}`}
         </button>
       )}
-      {connected && !manual && <p className="break-all text-xs text-muted">Paying from {connected.address}. Refunds, if any, go back here.</p>}
+      {connected && !manual && (
+        <p className="flex items-center gap-2 text-xs text-muted">
+          {shared && wallet && <Icon src={wallet.icon} alt={wallet.name} size={16} />}
+          Paying from {connected.label} <span className="font-mono">{shortAccount(connected.address)}</span>. Refunds, if any, go back here.
+        </p>
+      )}
       {props.open && !manual && (
         <button type="button" onClick={() => setManualOpen(true)} className="text-sm text-muted underline">
           Or send it yourself (any wallet or exchange)

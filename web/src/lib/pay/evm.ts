@@ -2,15 +2,11 @@ import type { PayInstruction, Payer } from "./types";
 
 type Eip1193 = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
 
-/** Injected EVM wallet (MetaMask, Rabby…): switch to the source chain, then a plain transfer. */
-export async function connectEvmPayer(): Promise<Payer> {
-  const eth = (window as unknown as { ethereum?: Eip1193 }).ethereum;
-  if (!eth) throw new Error("No EVM wallet found. Install MetaMask or Rabby.");
-  const [address] = (await eth.request({ method: "eth_requestAccounts" })) as string[];
-  if (!address) throw new Error("The wallet returned no account.");
+/** A connected EVM wallet (MetaMask, Rabby…): switch to the source chain, then a plain transfer. */
+export function evmPayer(eth: Eip1193, address: string, label: string): Payer {
   return {
     family: "evm",
-    label: "EVM wallet",
+    label,
     address,
     async pay(p: PayInstruction) {
       const chainId = `0x${BigInt(p.chain.split(":")[1] ?? "0").toString(16)}`;

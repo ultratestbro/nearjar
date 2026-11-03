@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { WalletMenu } from "@/components/WalletMenu";
+import { WalletProvider } from "@/components/WalletProvider";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -15,6 +17,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
+        <WalletProvider>
         <header className="border-b border-line">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
             <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
@@ -25,7 +28,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </Link>
             <nav className="flex items-center gap-1 text-sm">
               <Link href="/me" className="rounded-full px-3 py-1.5 text-muted hover:text-text">My jars</Link>
-              <Link href="/new" className="rounded-full bg-surface-2 px-3 py-1.5 hover:bg-line">Create a jar</Link>
+              <Link href="/new" className="rounded-full px-3 py-1.5 text-muted hover:text-text">Create a jar</Link>
+              <WalletMenu />
             </nav>
           </div>
         </header>
@@ -37,6 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <a className="underline" href="https://docs.anywallet.tech">Any Wallet Kit</a>.
           </p>
         </footer>
+        </WalletProvider>
       </body>
     </html>
   );

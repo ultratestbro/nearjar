@@ -2,55 +2,41 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { availableWallets, connect, type WalletKind } from "@/lib/wallet";
 import { Pill } from "./ui";
+import { WalletOptions } from "./WalletMenu";
+import { useWallet } from "./WalletProvider";
 
 type Jar = { id: string; title: string; status: "Open" | "Closed"; raised_usd_cents: string; goal_usd_cents: string | null; donations_count: string };
 
-const NAMES: Record<WalletKind, string> = { evm: "EVM wallet", solana: "Solana wallet" };
-
 export function MyJars() {
-  const [kinds, setKinds] = useState<WalletKind[] | null>(null);
-  const [account, setAccount] = useState("");
-  const [jars, setJars] = useState<Jar[] | null>(null);
+  const { wallet, restoring } = useWallet();
+  const account = wallet?.account ?? "";
+  const [loaded, setLoaded] = useState<{ account: string; jars: Jar[] } | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const t = setTimeout(() => setKinds(availableWallets()), 300);
-    return () => clearTimeout(t);
-  }, []);
+    if (!account) return;
+    let live = true;
+    fetch(`/api/jars?owner=${encodeURIComponent(account)}`)
+      .then((r) => r.json() as Promise<{ ok: boolean; jars?: Jar[]; error?: string }>)
+      .then((res) => {
+        if (!live) return;
+        if (res.ok && res.jars) setLoaded({ account, jars: res.jars });
+        else setError(res.error ?? "Could not load your jars.");
+      })
+      .catch(() => live && setError("Could not load your jars."));
+    return () => {
+      live = false;
+    };
+  }, [account]);
 
-  async function load(kind: WalletKind) {
-    setError("");
-    try {
-      const w = await connect(kind);
-      setAccount(w.account);
-      const res = (await (await fetch(`/api/jars?owner=${encodeURIComponent(w.account)}`)).json()) as { ok: boolean; jars?: Jar[]; error?: string };
-      if (!res.ok || !res.jars) throw new Error(res.error ?? "Could not load your jars.");
-      setJars(res.jars);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load your jars.");
-    }
-  }
+  const jars = loaded?.account === account ? loaded.jars : null;
 
   if (!account)
     return (
-      <div className="flex flex-col gap-3 rounded-3xl border border-line bg-surface p-6">
-        <p className="text-muted">Connect the wallet you use for near.com to see your jars.</p>
-        <div className="flex flex-wrap gap-2">
-          {kinds === null ? (
-            <p className="text-sm text-muted">Looking for wallets…</p>
-          ) : kinds.length === 0 ? (
-            <p className="text-sm text-muted">No browser wallet found. Install MetaMask, Rabby or Phantom.</p>
-          ) : (
-            kinds.map((k) => (
-              <button key={k} type="button" onClick={() => load(k)} className="rounded-full border border-line px-4 py-2 text-sm hover:border-accent">
-                {NAMES[k]}
-              </button>
-            ))
-          )}
-        </div>
-        {error && <p className="text-sm text-danger">{error}</p>}
+      <div className="flex max-w-xl flex-col gap-4 rounded-3xl border border-line bg-surface p-6">
+        <p className="text-muted">{restoring ? "Restoring your wallet…" : "Connect the wallet you use for near.com to see your jars."}</p>
+        {!restoring && <WalletOptions />}
       </div>
     );
 

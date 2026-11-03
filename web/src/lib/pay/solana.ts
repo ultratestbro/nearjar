@@ -1,6 +1,5 @@
 import { WalletAccountReadOnlySolana } from "@anywalletkit/wallet-solana";
 import { compileTransaction, getBase64EncodedWireTransaction } from "@solana/kit";
-import { getWallets } from "@wallet-standard/app";
 import type { Wallet, WalletAccount } from "@wallet-standard/base";
 import type { PayInstruction, Payer } from "./types";
 
@@ -24,21 +23,10 @@ class DepositBuilder extends WalletAccountReadOnlySolana {
 type SignAndSend = {
   signAndSendTransaction(i: { transaction: Uint8Array; account: WalletAccount; chain: string }): Promise<readonly { signature: Uint8Array }[]>;
 };
-type Connect = { connect(): Promise<{ accounts: readonly WalletAccount[] }> };
 
-function solanaWallet(): Wallet | undefined {
-  return getWallets()
-    .get()
-    .find((w) => w.chains.some((c) => c.startsWith("solana:")) && "solana:signAndSendTransaction" in w.features);
-}
-
-/** Phantom, Solflare, Backpack… via Wallet Standard. */
-export async function connectSolanaPayer(): Promise<Payer> {
-  const wallet = solanaWallet();
-  if (!wallet) throw new Error("No Solana wallet found. Install Phantom or Solflare.");
-  const { accounts } = await (wallet.features["standard:connect"] as Connect).connect();
-  const account = accounts.find((a) => a.chains.some((c) => c.startsWith("solana:"))) ?? accounts[0];
-  if (!account) throw new Error("The wallet returned no account.");
+/** A connected Wallet Standard wallet (Phantom, Solflare, Backpack…): SDK-built transfer, signed and sent by the wallet. */
+export function solanaPayer(wallet: Wallet, account: WalletAccount): Payer {
+  if (!("solana:signAndSendTransaction" in wallet.features)) throw new Error(`${wallet.name} can't send transactions here.`);
   const builder = new DepositBuilder(account.address, { provider: `${window.location.origin}/api/rpc/solana` });
   return {
     family: "solana",

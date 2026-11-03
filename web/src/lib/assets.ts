@@ -45,3 +45,8 @@ export const SOURCE_ASSETS: SourceAsset[] = CC_SOURCE_CHAINS.flatMap((c) =>
 export function sourceAsset(chain: string, symbol: string): SourceAsset | undefined {
   return SOURCE_ASSETS.find((a) => a.chain === chain && a.symbol === symbol);
 }
+
+/** Logo for an intents token id, taken from the SDK catalog entry that carries it. */
+export function assetIcon(assetId: string): string {
+  return SOURCE_ASSETS.find((a) => a.assetId === assetId)?.icon ?? "";
+}
