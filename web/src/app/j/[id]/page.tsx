@@ -29,7 +29,7 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
   const open = jar.status === "Open";
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_440px]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_440px]">
       <section className="flex flex-col gap-6">
         <div className="flex items-start gap-4">
           {jar.image_url ? (

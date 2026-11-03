@@ -104,7 +104,7 @@ export function WalletMenu() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-sm ${wallet ? "border border-line bg-surface hover:bg-surface-2" : "bg-accent font-medium text-accent-ink"}`}
+        className={`flex h-9 items-center gap-2 whitespace-nowrap rounded-full px-3.5 text-sm ${wallet ? "border border-line bg-surface hover:bg-surface-2" : "bg-accent font-medium text-accent-ink"}`}
       >
         {wallet ? (
           <>
@@ -114,7 +114,10 @@ export function WalletMenu() {
         ) : restoring ? (
           "…"
         ) : (
-          "Connect wallet"
+          <>
+            <span className="sm:hidden">Connect</span>
+            <span className="hidden sm:inline">Connect wallet</span>
+          </>
         )}
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className={`transition ${open ? "rotate-180" : ""}`}>
           <path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />

@@ -67,7 +67,7 @@ export function CreateJar({ assets }: { assets: readonly AssetWithIcon[] }) {
 
   const field = "rounded-xl border border-line bg-surface-2 px-3 py-2.5 outline-none focus:border-accent";
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="flex flex-col gap-6">
         <Card className="flex flex-col gap-4">
           <Step n={1} title="Connect the wallet you use for near.com" done={!!wallet} />

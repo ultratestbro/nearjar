@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { HeaderNav } from "@/components/HeaderNav";
 import { WalletMenu } from "@/components/WalletMenu";
 import { WalletProvider } from "@/components/WalletProvider";
 import "./globals.css";
@@ -20,15 +21,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <WalletProvider>
         <header className="border-b border-line">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-            <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <Link href="/" className="flex shrink-0 items-center gap-2 text-lg font-semibold tracking-tight">
               <span className="grid size-7 place-items-center rounded-lg bg-accent text-sm text-accent-ink">J</span>
               <span>
                 Near<span className="text-accent">Jar</span>
               </span>
             </Link>
-            <nav className="flex items-center gap-1 text-sm">
-              <Link href="/me" className="rounded-full px-3 py-1.5 text-muted hover:text-text">Studio</Link>
-              <Link href="/new" className="rounded-full px-3 py-1.5 text-muted hover:text-text">Create a jar</Link>
+            <nav className="flex items-center gap-2 text-sm">
+              <HeaderNav />
               <WalletMenu />
             </nav>
           </div>
