@@ -30,11 +30,12 @@ export function CreateJar({ assets }: { assets: readonly AssetWithIcon[] }) {
         signerId: wallet.account,
         action: "create_jar",
         jar: { title, description, goal_usd: goal || null, receive_asset: asset },
-      })) as { ok: boolean; message?: string; error?: string };
-      if (!prep.ok || !prep.message) throw new Error(prep.error ?? "Could not prepare the jar.");
+        standard: wallet.family === "near" ? "nep413" : undefined,
+      })) as { ok: boolean; message?: string; nonce?: string; recipient?: string; error?: string };
+      if (!prep.ok || !prep.message || !prep.nonce || !prep.recipient) throw new Error(prep.error ?? "Could not prepare the jar.");
 
       setBusy(`Sign the message in ${wallet.name}…`);
-      const signed = await wallet.sign(prep.message);
+      const signed = await wallet.sign({ message: prep.message, nonce: prep.nonce, recipient: prep.recipient });
 
       setBusy("Creating the jar on NEAR…");
       const res = (await post("/api/jars", { signed })) as { ok: boolean; jarId?: string; txHash?: string; error?: string };

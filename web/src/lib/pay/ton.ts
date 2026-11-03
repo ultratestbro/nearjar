@@ -14,7 +14,7 @@ const JETTON_GAS_NANO = 50_000_000n;
 type TonConnectUIType = import("@tonconnect/ui").TonConnectUI;
 let ui: TonConnectUIType | null = null;
 
-async function connector(): Promise<TonConnectUIType> {
+export async function connector(): Promise<TonConnectUIType> {
   if (ui) return ui;
   const { TonConnectUI } = await import("@tonconnect/ui");
   ui = new TonConnectUI({ manifestUrl: `${window.location.origin}/tonconnect-manifest.json` });
@@ -46,9 +46,11 @@ async function jettonWalletOf(master: string, owner: string): Promise<string> {
   return Cell.fromBase64(bytes).beginParse().loadAddress().toString({ bounceable: true });
 }
 
-/** Tonkeeper, MyTonWallet, Telegram Wallet… via TON Connect (QR for mobile wallets). */
-export async function connectTonPayer(): Promise<Payer> {
+/** Opens the TON Connect modal unless a wallet is connected; `silent` only waits for a restored session. */
+export async function tonConnect({ silent = false } = {}): Promise<TonConnectUIType> {
   const c = await connector();
+  await c.connectionRestored;
+  if (silent && !c.connected) throw new Error("not authorised");
   if (!c.connected) {
     const connected = new Promise<void>((resolve, reject) => {
       const off = c.onStatusChange(
@@ -70,6 +72,12 @@ export async function connectTonPayer(): Promise<Payer> {
     await c.openModal();
     await connected;
   }
+  return c;
+}
+
+/** Tonkeeper, MyTonWallet, Telegram Wallet… via TON Connect (QR for mobile wallets). */
+export async function connectTonPayer(): Promise<Payer> {
+  const c = await tonConnect();
   const { Address } = await tonCore();
   const raw = c.account?.address;
   if (!raw) throw new Error("The wallet returned no account.");

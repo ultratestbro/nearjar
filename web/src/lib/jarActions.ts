@@ -70,9 +70,10 @@ export function parseJarInput(raw: unknown): { ok: true; jar: JarInput } | { ok:
 /**
  * The exact text the owner signs: the NearJar action, then intents.near's envelope fields
  * (signer_id, verifying_contract, deadline, nonce), indented so the wallet shows one field per
- * line with what is being signed on top. Valid for 10 minutes.
+ * line with what is being signed on top. Valid for 10 minutes. NEP-413 wallets sign the nonce and
+ * the recipient (= verifying_contract) next to the message, so they are left out of its text.
  */
-export function envelope(signerId: string, action: JarAction): { message: string; nonce: string } {
+export function envelope(signerId: string, action: JarAction, { nep413 = false } = {}): { message: string; nonce: string } {
   const nonce = randomBytes(32).toString("base64");
   const deadline = new Date(Date.now() + 10 * 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
   const message = JSON.stringify(
@@ -81,9 +82,7 @@ export function envelope(signerId: string, action: JarAction): { message: string
       ...("jar_id" in action ? { jar_id: action.jar_id } : {}),
       ...("jar" in action ? { jar: signedJar(action.jar) } : {}),
       signer_id: signerId,
-      verifying_contract: NEARJAR_CONTRACT,
-      deadline,
-      nonce,
+      ...(nep413 ? { deadline } : { verifying_contract: NEARJAR_CONTRACT, deadline, nonce }),
     },
     null,
     2,

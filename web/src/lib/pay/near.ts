@@ -8,7 +8,7 @@ const GAS = 30_000_000_000_000n;
 
 let selector: Promise<WalletSelector> | null = null;
 
-function getSelector(): Promise<WalletSelector> {
+export function getSelector(): Promise<WalletSelector> {
   selector ??= (async () => {
     const [{ setupWalletSelector }, { setupMeteorWallet }, { setupHereWallet }, { setupIntearWallet }] = await Promise.all([
       import("@near-wallet-selector/core"),
@@ -28,20 +28,33 @@ function getSelector(): Promise<WalletSelector> {
 }
 
 /** NEAR wallets that can sign in a popup (Meteor, HERE, Intear) — no redirect mid-payment. */
-export async function nearWalletChoices(): Promise<{ id: string; name: string }[]> {
+export async function nearWalletChoices(): Promise<{ id: string; name: string; icon: string }[]> {
   const s = await getSelector();
   return s.store
     .getState()
     .modules.filter((m) => m.metadata.available)
-    .map((m) => ({ id: m.id, name: m.metadata.name }));
+    .map((m) => ({ id: m.id, name: m.metadata.name, icon: m.metadata.iconUrl }));
+}
+
+/** Signs in with a NEAR wallet (popup) or, `silent`, only picks up a session it already has. */
+export async function nearSignIn(walletId: string, { silent = false } = {}) {
+  const s = await getSelector();
+  const wallet = await s.wallet(walletId);
+  const state = s.store.getState();
+  const restored = state.selectedWalletId === walletId ? state.accounts.find((a) => a.active)?.accountId : undefined;
+  if (silent) {
+    if (!restored) throw new Error("not authorised");
+    return { wallet, accountId: restored };
+  }
+  const accounts = (await wallet.signIn({ contractId: "", methodNames: [], accounts: [] } as never)) as { accountId: string }[] | undefined;
+  const accountId = accounts?.[0]?.accountId ?? s.store.getState().accounts.find((a) => a.active)?.accountId;
+  if (!accountId) throw new Error("The wallet returned no NEAR account.");
+  return { wallet, accountId };
 }
 
 export async function connectNearPayer(walletId = "meteor-wallet"): Promise<Payer> {
   const s = await getSelector();
-  const wallet = await s.wallet(walletId);
-  const accounts = (await wallet.signIn({ contractId: "", methodNames: [], accounts: [] } as never)) as { accountId: string }[] | undefined;
-  const accountId = accounts?.[0]?.accountId ?? s.store.getState().accounts.find((a) => a.active)?.accountId;
-  if (!accountId) throw new Error("The wallet returned no NEAR account.");
+  const { wallet, accountId } = await nearSignIn(walletId);
   const name = s.store.getState().modules.find((m) => m.id === walletId)?.metadata.name ?? "NEAR wallet";
 
   return {

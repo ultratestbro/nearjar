@@ -17,10 +17,27 @@ const FAMILY: Record<WalletFamily, { title: string; icon: string; hint: string }
     icon: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/solana/info/logo.png",
     hint: "near.com account = your Solana key",
   },
+  near: {
+    title: "NEAR",
+    icon: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/near/info/logo.png",
+    hint: "near.com account = your NEAR account",
+  },
+  ton: {
+    title: "TON",
+    icon: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ton/info/logo.png",
+    hint: "near.com account = your TON wallet key · Tonkeeper, MyTonWallet, Telegram Wallet…",
+  },
+};
+
+const EMPTY: Record<WalletFamily, string> = {
+  evm: "No EVM wallet found — install MetaMask or Rabby.",
+  solana: "No Solana wallet found — install Phantom or Solflare.",
+  near: "Loading NEAR wallets…",
+  ton: "",
 };
 
 /** Network switch (EVM / Solana, with logos) over a grid of the wallets this browser has. */
-export function WalletOptions({ families = ["evm", "solana"], onPicked }: { families?: WalletFamily[]; onPicked?: () => void }) {
+export function WalletOptions({ families = ["evm", "solana", "near", "ton"], onPicked }: { families?: WalletFamily[]; onPicked?: () => void }) {
   const { options, connect, connecting, error, restoring } = useWallet();
   const [picked, setPicked] = useState<WalletFamily>(families[0]!);
   const family = families.includes(picked) ? picked : families[0]!;
@@ -28,7 +45,7 @@ export function WalletOptions({ families = ["evm", "solana"], onPicked }: { fami
   return (
     <div className="flex flex-col gap-3">
       {families.length > 1 && (
-        <div role="tablist" className="grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1">
+        <div role="tablist" className={`grid gap-1 rounded-xl bg-surface-2 p-1 ${families.length > 2 ? "grid-cols-4" : "grid-cols-2"}`}>
           {families.map((f) => (
             <button
               key={f}
@@ -36,11 +53,10 @@ export function WalletOptions({ families = ["evm", "solana"], onPicked }: { fami
               role="tab"
               aria-selected={f === family}
               onClick={() => setPicked(f)}
-              className={`flex items-center justify-center gap-2 rounded-lg py-1.5 text-sm ${f === family ? "bg-surface text-text shadow" : "text-muted hover:text-text"}`}
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm ${f === family ? "bg-surface text-text shadow" : "text-muted hover:text-text"}`}
             >
               <Icon src={FAMILY[f].icon} alt={FAMILY[f].title} size={16} />
               {FAMILY[f].title}
-              <span className="text-xs text-muted">{options.filter((o) => o.family === f).length || ""}</span>
             </button>
           ))}
         </div>
@@ -48,7 +64,7 @@ export function WalletOptions({ families = ["evm", "solana"], onPicked }: { fami
       <p className="px-1 text-xs text-muted">{FAMILY[family].hint}</p>
       {list.length === 0 ? (
         <p className="rounded-xl border border-dashed border-line px-3 py-3 text-sm text-muted">
-          {restoring ? "Looking for wallets…" : family === "evm" ? "No EVM wallet found — install MetaMask or Rabby." : "No Solana wallet found — install Phantom or Solflare."}
+          {restoring ? "Looking for wallets…" : EMPTY[family]}
         </p>
       ) : (
         <div className="grid grid-cols-3 gap-2">
@@ -73,7 +89,7 @@ export function WalletOptions({ families = ["evm", "solana"], onPicked }: { fami
         </div>
       )}
       {error && <p className="px-1 text-sm text-danger">{error}</p>}
-      <p className="px-1 text-xs text-muted">NEAR, TON and passkey near.com logins are coming next.</p>
+      <p className="px-1 text-xs text-muted">Passkey near.com logins are coming next.</p>
     </div>
   );
 }

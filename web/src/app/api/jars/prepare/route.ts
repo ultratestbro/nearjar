@@ -3,7 +3,7 @@ import { parseNearComAccount } from "@/lib/nearcom";
 import { NEARJAR_CONTRACT } from "@/lib/near";
 
 /**
- * POST { signerId, action: "create_jar" | "update_jar" | "close_jar", jar?, jarId? }
+ * POST { signerId, action: "create_jar" | "update_jar" | "close_jar", jar?, jarId?, standard? }
  * → { message, nonce, recipient }: the text the owner's wallet signs. Nothing is stored.
  */
 export async function POST(request: Request) {
@@ -28,5 +28,5 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "Bad jar id." }, { status: 400 });
   }
   // NEP-413 wallets also bind the signature to a recipient; NearJar uses its contract id.
-  return Response.json({ ok: true, ...envelope(signerId, action), recipient: NEARJAR_CONTRACT });
+  return Response.json({ ok: true, ...envelope(signerId, action, { nep413: body.standard === "nep413" }), recipient: NEARJAR_CONTRACT });
 }
