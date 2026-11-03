@@ -143,7 +143,7 @@ export function WalletMenu() {
               >
                 {copied ? "Copied" : "Copy near.com address"}
               </button>
-              <Link href="/me" onClick={() => setOpen(false)} className="rounded-xl px-3 py-2 text-sm hover:bg-surface-2">My jars</Link>
+              <Link href="/me" onClick={() => setOpen(false)} className="rounded-xl px-3 py-2 text-sm hover:bg-surface-2">Creator studio</Link>
               <Link href="/new" onClick={() => setOpen(false)} className="rounded-xl px-3 py-2 text-sm hover:bg-surface-2">Create a jar</Link>
               <button
                 type="button"

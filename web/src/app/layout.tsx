@@ -27,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </span>
             </Link>
             <nav className="flex items-center gap-1 text-sm">
-              <Link href="/me" className="rounded-full px-3 py-1.5 text-muted hover:text-text">My jars</Link>
+              <Link href="/me" className="rounded-full px-3 py-1.5 text-muted hover:text-text">Studio</Link>
               <Link href="/new" className="rounded-full px-3 py-1.5 text-muted hover:text-text">Create a jar</Link>
               <WalletMenu />
             </nav>

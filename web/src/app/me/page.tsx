@@ -1,10 +1,6 @@
-import { MyJars } from "@/components/MyJars";
+import { Studio } from "@/components/Studio";
+import { RECEIVE_ASSETS, assetIcon } from "@/lib/assets";
 
-export default function MyJarsPage() {
-  return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-semibold tracking-tight">My jars</h1>
-      <MyJars />
-    </div>
-  );
+export default function StudioPage() {
+  return <Studio assets={RECEIVE_ASSETS.map((a) => ({ ...a, icon: assetIcon(a.id) }))} />;
 }

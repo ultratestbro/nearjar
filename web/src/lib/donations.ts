@@ -242,6 +242,54 @@ export interface FeedItem {
   at: number;
 }
 
+/** Per-jar activity for the creator studio: daily USD for the last `days` days and the networks used. */
+export interface JarActivity {
+  daily: number[]; // USD cents per day, oldest first
+  supporters: number;
+}
+
+export async function studioActivity(jarIds: string[], days = 14): Promise<{ jars: Record<string, JarActivity>; networks: string[] }> {
+  const jars: Record<string, JarActivity> = {};
+  for (const id of jarIds) jars[id] = { daily: Array(days).fill(0), supporters: 0 };
+  if (jarIds.length === 0) return { jars, networks: [] };
+  const since = Date.now() - days * 86_400_000;
+  const marks = jarIds.map(() => "?").join(",");
+  const c = await db();
+  const rows = await c.execute({
+    sql: `SELECT jar_id, COALESCE(delivered_usd_cents, usd_cents) AS usd, updated_at FROM donations
+      WHERE status = 'delivered' AND jar_id IN (${marks}) AND updated_at >= ?`,
+    args: [...jarIds, since],
+  });
+  for (const r of rows.rows) {
+    const day = Math.min(days - 1, Math.floor((Number(r.updated_at) - since) / 86_400_000));
+    const j = jars[String(r.jar_id)];
+    if (j) j.daily[day] = (j.daily[day] ?? 0) + Number(r.usd);
+  }
+  const counts = await c.execute({
+    sql: `SELECT jar_id, COUNT(*) AS n FROM donations WHERE status = 'delivered' AND jar_id IN (${marks}) GROUP BY jar_id`,
+    args: jarIds,
+  });
+  for (const r of counts.rows) {
+    const j = jars[String(r.jar_id)];
+    if (j) j.supporters = Number(r.n);
+  }
+  const nets = await c.execute({
+    sql: `SELECT DISTINCT source_chain FROM donations WHERE status = 'delivered' AND jar_id IN (${marks})`,
+    args: jarIds,
+  });
+  return { jars, networks: nets.rows.map((r) => String(r.source_chain)) };
+}
+
+/** Delivered donations of these jars for the accountant's CSV (no refund addresses). */
+export async function deliveredFor(jarIds: string[]): Promise<DonationRow[]> {
+  if (jarIds.length === 0) return [];
+  const r = await (await db()).execute({
+    sql: `SELECT * FROM donations WHERE status = 'delivered' AND jar_id IN (${jarIds.map(() => "?").join(",")}) ORDER BY updated_at`,
+    args: jarIds,
+  });
+  return r.rows as unknown as DonationRow[];
+}
+
 export async function jarFeed(jarId: string, limit = 20): Promise<FeedItem[]> {
   const r = await (await db()).execute({
     sql: `SELECT id, donor_name, message, COALESCE(delivered_usd_cents, usd_cents) AS usd, source_chain, source_symbol, updated_at
