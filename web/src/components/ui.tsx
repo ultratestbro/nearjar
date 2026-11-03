@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-3xl border border-line bg-surface p-6 ${className}`}>{children}</div>;
+  return <div className={`rounded-3xl border border-line bg-surface p-5 sm:p-6 ${className}`}>{children}</div>;
 }
 
 export function Pill({ children, tone = "muted" }: { children: ReactNode; tone?: "muted" | "accent" | "danger" }) {

@@ -47,10 +47,8 @@ fn jar_input(title: &str) -> serde_json::Value {
     serde_json::json!({
         "title": title,
         "description": "help the cats",
-        "image_url": null,
-        "goal_usd_cents": "50000",
-        "ends_at": null,
-        "receive_asset": USDC,
+        "goal": "$500",
+        "receive": "USDC",
     })
 }
 
@@ -265,7 +263,7 @@ fn unknown_asset_is_rejected() {
     let mut c = setup();
     let ed = Ed::new(1);
     let mut action = create_action("Cats");
-    action["jar"]["receive_asset"] = "nep141:evil.near".into();
+    action["jar"]["receive"] = "EVIL".into();
     let payload = envelope(&ed.account(), 1, NOW + 5 * MIN, action);
     ctx(relayer());
     let _ = c.submit(ed.sign(&payload));
@@ -368,4 +366,69 @@ fn only_owner_adds_relayers() {
     let mut c = setup();
     ctx(relayer());
     c.add_relayer("evil.near".parse().unwrap());
+}
+
+#[test]
+fn signed_goal_and_symbol_become_stored_fields() {
+    let mut c = setup();
+    let ed = Ed::new(1);
+    let payload = envelope(&ed.account(), 1, NOW + 5 * MIN, create_action("Cats"));
+    let id = create_ok(&mut c, &ed.account(), ed.sign(&payload));
+    let jar = c.get_jar(id).unwrap();
+    assert_eq!(jar.input.goal_usd_cents, Some(U64(50_000)));
+    assert_eq!(jar.input.receive_asset, USDC);
+}
+
+#[test]
+fn usd_goal_spelling_is_canonical() {
+    assert_eq!(parse_usd_cents("$1,500"), Some(150_000));
+    assert_eq!(parse_usd_cents("$1,500.50"), Some(150_050));
+    assert_eq!(parse_usd_cents("$12"), Some(1_200));
+    assert_eq!(parse_usd_cents("$10,000,000"), Some(1_000_000_000));
+    for bad in [
+        "1500",
+        "$1500",
+        "$1,50",
+        "$01",
+        "$1.5",
+        "$1,500.",
+        "$,500",
+        "$1,500.505",
+        "$ 5",
+        "$-5",
+        "$0,500",
+    ] {
+        assert_eq!(parse_usd_cents(bad), None, "{bad}");
+    }
+}
+
+#[test]
+#[should_panic(expected = "bad goal")]
+fn non_canonical_goal_is_rejected() {
+    let mut c = setup();
+    let ed = Ed::new(1);
+    let mut action = create_action("Cats");
+    action["jar"]["goal"] = "$1500".into();
+    let payload = envelope(&ed.account(), 1, NOW + 5 * MIN, action);
+    ctx(relayer());
+    let _ = c.submit(ed.sign(&payload));
+}
+
+#[test]
+fn pretty_printed_action_first_payload_verifies() {
+    let mut c = setup();
+    let ed = Ed::new(1);
+    let compact = envelope(&ed.account(), 1, NOW + 5 * MIN, create_action("Cats"));
+    let v: serde_json::Value = serde_json::from_str(&compact).unwrap();
+    // the order the web app signs: what happens first, envelope fields last
+    let payload = format!(
+        "{{\n  \"action\": \"create_jar\",\n  \"jar\": {},\n  \"signer_id\": {},\n  \"verifying_contract\": {},\n  \"deadline\": {},\n  \"nonce\": {}\n}}",
+        serde_json::to_string_pretty(&v["jar"]).unwrap().replace('\n', "\n  "),
+        v["signer_id"],
+        v["verifying_contract"],
+        v["deadline"],
+        v["nonce"],
+    );
+    let id = create_ok(&mut c, &ed.account(), ed.sign(&payload));
+    assert_eq!(c.get_jar(id).unwrap().input.title, "Cats");
 }

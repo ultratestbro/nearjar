@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { DonatePanel } from "@/components/DonatePanel";
+import { CopyAccount, DonateCta } from "@/components/JarMobile";
 import { ShareJar } from "@/components/ShareJar";
 import { Card, Icon, Pill, shortAccount } from "@/components/ui";
 import { RECEIVE_ASSETS, SOURCE_ASSETS, receiveAsset } from "@/lib/assets";
@@ -29,19 +30,21 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
   const open = jar.status === "Open";
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_440px]">
-      <section className="flex flex-col gap-6">
+    // Phones: jar, progress, then straight to the donate form; supporters below it.
+    // Desktop: the donate form is a sticky right column next to everything else.
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 pb-20 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_440px] lg:grid-rows-[auto_1fr] lg:pb-0">
+      <section className="flex flex-col gap-5 sm:gap-6 lg:col-start-1">
         <div className="flex items-start gap-4">
           {jar.image_url ? (
-            <img src={jar.image_url} alt="" className="size-16 shrink-0 rounded-2xl object-cover" />
+            <img src={jar.image_url} alt="" className="size-14 shrink-0 rounded-2xl object-cover sm:size-16" />
           ) : (
-            <span className="grid size-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-accent/80 to-accent/20 text-2xl font-semibold text-accent-ink">
+            <span className="grid size-14 shrink-0 place-items-center rounded-2xl sm:size-16 bg-gradient-to-br from-accent/80 to-accent/20 text-2xl font-semibold text-accent-ink">
               {jar.title.slice(0, 1).toUpperCase()}
             </span>
           )}
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{jar.title}</h1>
+              <h1 className="break-words text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">{jar.title}</h1>
               <Pill tone={open ? "accent" : "muted"}>{open ? "Open" : "Closed"}</Pill>
             </div>
             <p className="text-sm text-muted">
@@ -50,13 +53,13 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
           </div>
         </div>
 
-        {jar.description && <p className="whitespace-pre-line text-lg text-muted">{jar.description}</p>}
+        {jar.description && <p className="whitespace-pre-line text-muted sm:text-lg">{jar.description}</p>}
 
         <Card className="flex flex-col gap-4">
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-sm text-muted">Raised</p>
-              <p className="text-4xl font-semibold tracking-tight">${raised.toLocaleString("en-US", { maximumFractionDigits: 2 })}</p>
+              <p className="text-3xl font-semibold tracking-tight sm:text-4xl">${raised.toLocaleString("en-US", { maximumFractionDigits: 2 })}</p>
             </div>
             <div className="text-right text-sm text-muted">
               {goal && <p>goal ${goal.toLocaleString("en-US")}</p>}
@@ -70,7 +73,13 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
           )}
           <ShareJar jarId={jar.id} title={jar.title} />
         </Card>
+      </section>
 
+      <div id="donate" className="scroll-mt-4 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
+        <DonatePanel jarId={jar.id} receive={asset} sources={SOURCE_ASSETS} open={open} />
+      </div>
+
+      <section className="flex flex-col gap-5 sm:gap-6 lg:col-start-1">
         <Card className="flex flex-col gap-4">
           <h2 className="font-semibold">Recent supporters</h2>
           {feed.length === 0 ? (
@@ -85,16 +94,14 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
         </Card>
 
         <p className="text-sm text-muted">
-          Donations arrive as {asset.symbol} in <span className="break-all font-mono">nearcom:{jar.owner}</span>.{" "}
+          Donations arrive as {asset.symbol} in <CopyAccount account={jar.owner} />.{" "}
           {CONFIDENTIAL_DELIVERY
             ? "They land in the owner's Confidential near.com balance, ready to use."
             : "They land in the public (legacy) balance; the owner moves them to Confidential in near.com."}
         </p>
       </section>
 
-      <div className="lg:sticky lg:top-6 lg:self-start">
-        <DonatePanel jarId={jar.id} receive={asset} sources={SOURCE_ASSETS} open={open} />
-      </div>
+      {open && <DonateCta />}
     </div>
   );
 }

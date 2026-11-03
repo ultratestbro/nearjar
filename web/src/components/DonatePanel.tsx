@@ -182,7 +182,7 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
   const receiveOut = quote ? formatUnits(BigInt(quote.amountOut), props.receive.decimals) : null;
 
   return (
-    <aside className="flex flex-col gap-5 rounded-3xl border border-line bg-surface p-6">
+    <aside className="flex flex-col gap-5 rounded-3xl border border-line bg-surface p-4 sm:p-6">
       <h2 className="text-xl font-semibold">Donate</h2>
 
       <div className="flex flex-col gap-2">
@@ -287,7 +287,7 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
         <div className="flex flex-col gap-2">
           <button type="button" onClick={() => setPickerOpen((v) => !v)} aria-expanded={pickerOpen}
             className="rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105">
-            Connect a {family === "evm" ? "EVM" : "Solana"} wallet
+            Connect {family === "evm" ? "an EVM" : "a Solana"} wallet
           </button>
           {pickerOpen && (
             <div className="rounded-2xl border border-line bg-surface-2/40 p-3">

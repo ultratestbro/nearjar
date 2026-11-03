@@ -33,6 +33,18 @@ pub const MAX_TX_HASH: usize = 128;
 /// A signed action must not be valid for longer than this.
 pub const MAX_DEADLINE_NS: u64 = 60 * 60 * 1_000_000_000;
 
+/// Receive assets by the symbol owners sign, as intents.near token ids.
+pub const RECEIVE_SYMBOLS: [(&str, &str); 5] = [
+    (
+        "USDC",
+        "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    ),
+    ("USDT", "nep141:usdt.tether-token.near"),
+    ("NEAR", "nep141:wrap.near"),
+    ("BTC", "nep141:btc.omft.near"),
+    ("ETH", "nep141:eth.omft.near"),
+];
+
 const GAS_HAS_PUBLIC_KEY: Gas = Gas::from_tgas(10);
 const GAS_ON_KEY_CHECKED: Gas = Gas::from_tgas(30);
 
@@ -95,14 +107,34 @@ pub struct Jar {
     pub donations_count: U64,
 }
 
+/// Jar fields as the owner signs them, written so a wallet shows them readably:
+/// `"goal": "$1,500"`, `"receive": "USDC"`. Converted to [`JarInput`] for storage.
+#[near(serializers = [json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SignedJar {
+    pub title: String,
+    #[serde(default)]
+    pub description: String,
+    /// Dollars in canonical form: `$1,500` or `$1,500.50`. Omitted: no goal.
+    #[serde(default)]
+    pub goal: Option<String>,
+    /// Symbol of the asset the owner receives, see [`RECEIVE_SYMBOLS`].
+    pub receive: String,
+    #[serde(default)]
+    pub image_url: Option<String>,
+    /// Unix nanoseconds.
+    #[serde(default)]
+    pub ends_at: Option<U64>,
+}
+
 /// What the owner signs. Serialized flat next to the intents.near envelope fields
 /// (`signer_id`, `verifying_contract`, `deadline`, `nonce`).
 #[near(serializers = [json])]
 #[serde(tag = "action", rename_all = "snake_case")]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum JarAction {
-    CreateJar { jar: JarInput },
-    UpdateJar { jar_id: U64, jar: JarInput },
+    CreateJar { jar: SignedJar },
+    UpdateJar { jar_id: U64, jar: SignedJar },
     CloseJar { jar_id: U64 },
 }
 
@@ -259,10 +291,10 @@ impl NearJar {
         self.precheck(&signer_id, &action);
 
         match action {
-            JarAction::CreateJar { jar } => self.create_jar(signer_id, jar),
+            JarAction::CreateJar { jar } => self.create_jar(signer_id, jar_input(&jar)),
             JarAction::UpdateJar { jar_id, jar } => {
                 let mut stored = self.jars.get(&jar_id.0).cloned().unwrap();
-                stored.input = jar;
+                stored.input = jar_input(&jar);
                 self.jars.insert(jar_id.0, stored);
                 emit("jar_updated", &serde_json::json!({ "jar_id": jar_id }));
                 jar_id
@@ -401,12 +433,12 @@ impl NearJar {
     fn precheck(&self, signer_id: &AccountId, action: &JarAction) {
         match action {
             JarAction::CreateJar { jar } => {
-                self.validate_input(jar);
+                self.validate_input(&jar_input(jar));
                 let open = self.owner_jar_count.get(signer_id).copied().unwrap_or(0);
                 require!(open < MAX_OPEN_JARS_PER_OWNER, "too many open jars");
             }
             JarAction::UpdateJar { jar_id, jar } => {
-                self.validate_input(jar);
+                self.validate_input(&jar_input(jar));
                 self.assert_jar_owner_open(*jar_id, signer_id);
             }
             JarAction::CloseJar { jar_id } => self.assert_jar_owner_open(*jar_id, signer_id),
@@ -490,6 +522,56 @@ fn timestamp_ns(ts: Timestamp) -> u64 {
 }
 
 /// NEP-297 event log.
+/// Signed jar fields → stored fields. Panics on a goal that is not in canonical form or an
+/// unknown receive symbol, so the wallet text and the stored jar always say the same thing.
+fn jar_input(jar: &SignedJar) -> JarInput {
+    let goal_usd_cents = jar.goal.as_deref().map(|g| {
+        U64(parse_usd_cents(g).unwrap_or_else(|| env::panic_str("bad goal, expected e.g. $1,500")))
+    });
+    let receive_asset = RECEIVE_SYMBOLS
+        .iter()
+        .find(|(symbol, _)| *symbol == jar.receive)
+        .map(|(_, id)| id.to_string())
+        .unwrap_or_else(|| env::panic_str("receive_asset not supported"));
+    JarInput {
+        title: jar.title.clone(),
+        description: jar.description.clone(),
+        image_url: jar.image_url.clone(),
+        goal_usd_cents,
+        ends_at: jar.ends_at,
+        receive_asset,
+    }
+}
+
+/// `$1,500` → 150000, `$1,500.50` → 150050. Only the canonical spelling is accepted: comma
+/// thousands, no leading zeros, cents either absent or exactly two digits.
+pub fn parse_usd_cents(s: &str) -> Option<u64> {
+    let s = s.strip_prefix('$')?;
+    let (whole, cents) = match s.split_once('.') {
+        Some((w, c)) if c.len() == 2 && c.bytes().all(|b| b.is_ascii_digit()) => {
+            (w, c.parse::<u64>().ok()?)
+        }
+        Some(_) => return None,
+        None => (s, 0),
+    };
+    let mut groups = whole.split(',');
+    let first = groups.next()?;
+    if first.is_empty() || first.len() > 3 || !first.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    if first.starts_with('0') && (first.len() > 1 || whole.contains(',')) {
+        return None;
+    }
+    let mut dollars: u64 = first.parse().ok()?;
+    for g in groups {
+        if g.len() != 3 || !g.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        dollars = dollars.checked_mul(1000)?.checked_add(g.parse().ok()?)?;
+    }
+    dollars.checked_mul(100)?.checked_add(cents)
+}
+
 fn emit<T: serde::Serialize>(event: &str, data: &T) {
     env::log_str(&format!(
         "EVENT_JSON:{}",

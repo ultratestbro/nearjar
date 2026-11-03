@@ -21,6 +21,25 @@ export type JarAction =
   | { action: "update_jar"; jar_id: string; jar: JarInput }
   | { action: "close_jar"; jar_id: string };
 
+/** Jar fields the way the contract takes them signed: `"goal": "$1,500"`, `"receive": "USDC"`. */
+function signedJar(jar: JarInput): Record<string, unknown> {
+  return {
+    title: jar.title,
+    ...(jar.description ? { description: jar.description } : {}),
+    ...(jar.goal_usd_cents ? { goal: usd(BigInt(jar.goal_usd_cents)) } : {}),
+    receive: receiveAsset(jar.receive_asset)!.symbol,
+    ...(jar.image_url ? { image_url: jar.image_url } : {}),
+    ...(jar.ends_at ? { ends_at: jar.ends_at } : {}),
+  };
+}
+
+/** 150000 → "$1,500", 150050 → "$1,500.50" — the only spelling the contract accepts. */
+export function usd(cents: bigint): string {
+  const dollars = (cents / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const rest = cents % 100n;
+  return `$${dollars}${rest ? `.${rest.toString().padStart(2, "0")}` : ""}`;
+}
+
 export function parseJarInput(raw: unknown): { ok: true; jar: JarInput } | { ok: false; error: string } {
   const r = (raw ?? {}) as Record<string, unknown>;
   const title = String(r.title ?? "").trim();
@@ -49,18 +68,25 @@ export function parseJarInput(raw: unknown): { ok: true; jar: JarInput } | { ok:
 }
 
 /**
- * The exact text the owner signs: intents.near's envelope (signer_id, verifying_contract,
- * deadline, nonce) with the NearJar action flattened in. Valid for 10 minutes.
+ * The exact text the owner signs: the NearJar action, then intents.near's envelope fields
+ * (signer_id, verifying_contract, deadline, nonce), indented so the wallet shows one field per
+ * line with what is being signed on top. Valid for 10 minutes.
  */
 export function envelope(signerId: string, action: JarAction): { message: string; nonce: string } {
   const nonce = randomBytes(32).toString("base64");
   const deadline = new Date(Date.now() + 10 * 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
-  const message = JSON.stringify({
-    signer_id: signerId,
-    verifying_contract: NEARJAR_CONTRACT,
-    deadline,
-    nonce,
-    ...action,
-  });
+  const message = JSON.stringify(
+    {
+      action: action.action,
+      ...("jar_id" in action ? { jar_id: action.jar_id } : {}),
+      ...("jar" in action ? { jar: signedJar(action.jar) } : {}),
+      signer_id: signerId,
+      verifying_contract: NEARJAR_CONTRACT,
+      deadline,
+      nonce,
+    },
+    null,
+    2,
+  );
   return { message, nonce };
 }

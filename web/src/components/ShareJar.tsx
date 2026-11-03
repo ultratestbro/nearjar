@@ -22,10 +22,10 @@ export function ShareJar({ jarId, title }: { jarId: string; title: string }) {
     };
   }, [jarId, showQr]);
 
-  const btn = "rounded-full border border-line px-4 py-2 text-sm hover:bg-surface-2";
+  const btn = "whitespace-nowrap rounded-full border border-line px-2 py-2 text-sm hover:bg-surface-2 sm:px-4";
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
         <button
           type="button"
           className={btn}
@@ -51,7 +51,7 @@ export function ShareJar({ jarId, title }: { jarId: string; title: string }) {
             )
           }
         >
-          Share on X
+          Post on X
         </button>
       </div>
       {showQr && qr && <div className="w-40 rounded-xl bg-white p-2" dangerouslySetInnerHTML={{ __html: qr }} />}
