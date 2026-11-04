@@ -1,6 +1,8 @@
 import { getJarsByOwner } from "@/lib/jars";
 import { relayCall } from "@/lib/near";
 import { parseNearComAccount } from "@/lib/nearcom";
+import { parsePage } from "@/lib/pageData";
+import { pageFingerprint, savePage } from "@/lib/pages";
 
 const STANDARDS = new Set(["erc191", "raw_ed25519", "nep413", "ton_connect", "tip191", "sep53", "webauthn"]);
 
@@ -15,24 +17,40 @@ function throttled(ip: string): boolean {
 }
 
 /**
- * POST { signed } — a MultiPayload signed by the jar owner. The relayer submits it; the
- * contract verifies the signature and asks intents.near whether the key is the owner's.
- * → { ok, jarId, txHash }
+ * POST { signed, page? } — a MultiPayload signed by the jar owner. The relayer submits it; the
+ * contract verifies the signature and asks intents.near whether the key is the owner's. `page`
+ * is stored for the jar only when the signed text carries its fingerprint.
+ * → { ok, jarId, txHash, slugKept? }
  */
 export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
   if (throttled(ip)) return Response.json({ ok: false, error: "Too many requests, try again later." }, { status: 429 });
 
-  const body = (await request.json().catch(() => ({}))) as { signed?: { standard?: string } };
+  const body = (await request.json().catch(() => ({}))) as { signed?: { standard?: string }; page?: unknown };
   const signed = body.signed;
   if (!signed || !STANDARDS.has(String(signed.standard))) {
     return Response.json({ ok: false, error: "Missing or unsupported signature." }, { status: 400 });
   }
-  if (JSON.stringify(signed).length > 8_000) return Response.json({ ok: false, error: "Payload too large." }, { status: 413 });
+  const signedText = JSON.stringify(signed);
+  if (signedText.length > 8_000) return Response.json({ ok: false, error: "Payload too large." }, { status: 413 });
+
+  let page = null;
+  let hash = "";
+  if (body.page !== undefined && body.page !== null) {
+    const parsed = parsePage(body.page);
+    if (!parsed.ok) return Response.json(parsed, { status: 400 });
+    page = parsed.page;
+    hash = pageFingerprint(page);
+    // the signature covers the whole text; a page whose fingerprint isn't in it was not signed
+    if (!signedText.includes(`sha256:${hash}`)) return Response.json({ ok: false, error: "The page changed after signing. Publish again." }, { status: 400 });
+  }
 
   const res = await relayCall<string>("submit", { signed }, 100);
   if (!res.ok) return Response.json({ ok: false, error: res.error, txHash: res.txHash }, { status: 422 });
-  return Response.json({ ok: true, jarId: res.value, txHash: res.txHash });
+  if (!page) return Response.json({ ok: true, jarId: res.value, txHash: res.txHash });
+  const saved = await savePage(res.value, page, hash, res.txHash).catch(() => null);
+  if (!saved) return Response.json({ ok: true, jarId: res.value, txHash: res.txHash, pageError: "The jar is saved, but its page was not. Publish again." });
+  return Response.json({ ok: true, jarId: res.value, txHash: res.txHash, slugKept: saved.slugKept });
 }
 
 /** GET ?owner=<near.com account> → that owner's jars, straight from the contract. */

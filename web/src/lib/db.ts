@@ -47,6 +47,22 @@ async function migrate(c: Client): Promise<void> {
       )`,
       `CREATE INDEX IF NOT EXISTS donations_jar ON donations (jar_id, created_at)`,
       `CREATE INDEX IF NOT EXISTS donations_open ON donations (status, updated_at)`,
+      // the jar page beyond the contract's fields, stored once its signed fingerprint is accepted
+      `CREATE TABLE IF NOT EXISTS jar_pages (
+        jar_id TEXT PRIMARY KEY,
+        page TEXT NOT NULL,               -- canonical JSON, see lib/pageData.ts
+        hash TEXT NOT NULL,               -- sha256 hex the owner signed
+        slug TEXT UNIQUE,
+        tx_hash TEXT,
+        updated_at INTEGER NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS images (
+        hash TEXT PRIMARY KEY,            -- sha256 hex of bytes
+        mime TEXT NOT NULL,
+        bytes BLOB NOT NULL,
+        size INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      )`,
     ],
     "write",
   );

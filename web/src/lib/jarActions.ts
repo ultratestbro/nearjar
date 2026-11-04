@@ -3,6 +3,8 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { receiveAsset } from "./assets";
 import { NEARJAR_CONTRACT } from "./near";
+import { parsePage, type JarPageData } from "./pageData";
+import { pageFingerprint } from "./pages";
 
 /** Mirrors the contract's limits so a bad jar fails before the owner signs. */
 export const LIMITS = { title: 80, description: 1000, url: 300 } as const;
@@ -14,6 +16,8 @@ export interface JarInput {
   goal_usd_cents: string | null;
   ends_at: string | null;
   receive_asset: string;
+  /** Fingerprint of the jar page (lib/pageData.ts); signed, not stored by the contract. */
+  page_hash: string | null;
 }
 
 export type JarAction =
@@ -30,6 +34,7 @@ function signedJar(jar: JarInput): Record<string, unknown> {
     receive: receiveAsset(jar.receive_asset)!.symbol,
     ...(jar.image_url ? { image_url: jar.image_url } : {}),
     ...(jar.ends_at ? { ends_at: jar.ends_at } : {}),
+    ...(jar.page_hash ? { page: `sha256:${jar.page_hash}` } : {}),
   };
 }
 
@@ -40,7 +45,7 @@ export function usd(cents: bigint): string {
   return `$${dollars}${rest ? `.${rest.toString().padStart(2, "0")}` : ""}`;
 }
 
-export function parseJarInput(raw: unknown): { ok: true; jar: JarInput } | { ok: false; error: string } {
+export function parseJarInput(raw: unknown): { ok: true; jar: JarInput; page: JarPageData | null } | { ok: false; error: string } {
   const r = (raw ?? {}) as Record<string, unknown>;
   const title = String(r.title ?? "").trim();
   const description = String(r.description ?? "").trim();
@@ -53,6 +58,8 @@ export function parseJarInput(raw: unknown): { ok: true; jar: JarInput } | { ok:
   if (image && (!image.startsWith("https://") || image.length > LIMITS.url)) return { ok: false, error: "Image must be an https:// link." };
   if (goalUsd !== null && !(Number.isFinite(goalUsd) && goalUsd >= 1 && goalUsd <= 10_000_000)) return { ok: false, error: "Goal must be between $1 and $10,000,000." };
   if (!receiveAsset(asset)) return { ok: false, error: "Pick what you receive." };
+  const page = r.page === undefined || r.page === null ? null : parsePage(r.page);
+  if (page && !page.ok) return page;
 
   return {
     ok: true,
@@ -63,7 +70,9 @@ export function parseJarInput(raw: unknown): { ok: true; jar: JarInput } | { ok:
       goal_usd_cents: goalUsd === null ? null : String(Math.round(goalUsd * 100)),
       ends_at: null,
       receive_asset: asset,
+      page_hash: page ? pageFingerprint(page.page) : null,
     },
+    page: page ? page.page : null,
   };
 }
 

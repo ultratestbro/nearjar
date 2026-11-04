@@ -1,12 +1,15 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { DonatePanel } from "@/components/DonatePanel";
+import { JarAvatar, JarCover } from "@/components/JarArt";
 import { CopyAccount, DonateCta } from "@/components/JarMobile";
-import { ShareJar } from "@/components/ShareJar";
-import { Card, Icon, Pill, shortAccount } from "@/components/ui";
+import { JarTabs, type SupporterRow } from "@/components/JarTabs";
+import { Panel, Pill } from "@/components/ui";
 import { RECEIVE_ASSETS, SOURCE_ASSETS, receiveAsset } from "@/lib/assets";
 import { jarFeed, type FeedItem } from "@/lib/donations";
-import { getJar } from "@/lib/jars";
+import { resolveJar } from "@/lib/jars";
+import { EMPTY_PAGE } from "@/lib/pageData";
+import { getPage } from "@/lib/pages";
 import { CONFIDENTIAL_DELIVERY } from "@/lib/quote";
 
 export default function JarPage({ params }: PageProps<"/j/[id]">) {
@@ -19,116 +22,67 @@ export default function JarPage({ params }: PageProps<"/j/[id]">) {
 
 async function Jar({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const jar = await getJar(id).catch(() => null);
+  const jar = await resolveJar(decodeURIComponent(id)).catch(() => null);
   if (!jar) notFound();
-  const feed = await jarFeed(jar.id).catch(() => [] as FeedItem[]);
+  const [feed, stored] = await Promise.all([jarFeed(jar.id).catch(() => [] as FeedItem[]), getPage(jar.id).catch(() => null)]);
+  const page = stored?.page ?? EMPTY_PAGE;
 
   const asset = receiveAsset(jar.receive_asset) ?? RECEIVE_ASSETS[0];
   const raised = Number(jar.raised_usd_cents) / 100;
   const goal = jar.goal_usd_cents ? Number(jar.goal_usd_cents) / 100 : null;
-  const pct = goal ? Math.min(100, (raised / goal) * 100) : null;
   const open = jar.status === "Open";
+  const supporters: SupporterRow[] = feed.map((f) => {
+    const src = SOURCE_ASSETS.find((a) => a.chain === f.sourceChain && a.symbol === f.sourceSymbol);
+    return { ...f, icon: src?.icon ?? "", chainLabel: src?.chainLabel ?? f.sourceChain };
+  });
 
   return (
-    // Phones: jar, progress, then straight to the donate form; supporters below it.
-    // Desktop: the donate form is a sticky right column next to everything else.
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 pb-20 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_440px] lg:grid-rows-[auto_1fr] lg:pb-0">
-      <section className="flex flex-col gap-5 sm:gap-6 lg:col-start-1">
-        <div className="flex items-start gap-4">
-          {jar.image_url ? (
-            <img src={jar.image_url} alt="" className="size-14 shrink-0 rounded-2xl object-cover sm:size-16" />
-          ) : (
-            <span className="grid size-14 shrink-0 place-items-center rounded-2xl sm:size-16 bg-gradient-to-br from-accent/80 to-accent/20 text-2xl font-semibold text-accent-ink">
-              {jar.title.slice(0, 1).toUpperCase()}
-            </span>
-          )}
-          <div className="flex min-w-0 flex-col gap-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="break-words text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">{jar.title}</h1>
-              <Pill tone={open ? "accent" : "muted"}>{open ? "Open" : "Closed"}</Pill>
-            </div>
-            <p className="text-sm text-muted">
-              by <span className="font-mono">nearcom:{shortAccount(jar.owner)}</span>
+    <Panel className="overflow-hidden pb-20 lg:pb-0">
+      <JarCover page={page} legacyImage={jar.image_url} className="h-40 w-full sm:h-56 lg:h-64" />
+
+      {/* Phones: jar, then the donate card, then the tabs. Desktop: the card is a sticky right column. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:grid-rows-[auto_1fr] lg:gap-10 lg:p-8">
+        <section className="-mt-14 flex flex-col gap-4 sm:-mt-16 lg:col-start-1">
+          <JarAvatar page={page} title={jar.title} size={80} className="relative border-4 border-panel" />
+          <div className="flex flex-col gap-2">
+            <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
+              <CopyAccount account={jar.owner} />
+              {!open && <Pill>Closed</Pill>}
             </p>
+            <h1 className="break-words text-3xl font-semibold tracking-tight sm:text-4xl">{jar.title}</h1>
+            {page.tagline && <p className="text-lg text-muted">{page.tagline}</p>}
           </div>
+        </section>
+
+        <div id="donate" className="scroll-mt-4 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
+          <DonatePanel
+            jarId={jar.id}
+            jarTitle={jar.title}
+            receive={asset}
+            sources={SOURCE_ASSETS}
+            open={open}
+            raisedUsd={raised}
+            goalUsd={goal}
+            supporters={Number(jar.donations_count)}
+            presets={page.presets}
+            thanks={page.thanks}
+            confidential={CONFIDENTIAL_DELIVERY}
+            sharePath={`/j/${page.slug ?? jar.id}`}
+          />
         </div>
 
-        {jar.description && <p className="whitespace-pre-line text-muted sm:text-lg">{jar.description}</p>}
-
-        <Card className="flex flex-col gap-4">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="text-sm text-muted">Raised</p>
-              <p className="text-3xl font-semibold tracking-tight sm:text-4xl">${raised.toLocaleString("en-US", { maximumFractionDigits: 2 })}</p>
-            </div>
-            <div className="text-right text-sm text-muted">
-              {goal && <p>goal ${goal.toLocaleString("en-US")}</p>}
-              <p>{jar.donations_count} donations</p>
-            </div>
-          </div>
-          {pct !== null && (
-            <div className="h-2.5 overflow-hidden rounded-full bg-surface-2">
-              <div className="h-full rounded-full bg-accent" style={{ width: `${Math.max(pct, 1)}%` }} />
-            </div>
-          )}
-          <ShareJar jarId={jar.id} title={jar.title} />
-        </Card>
-      </section>
-
-      <div id="donate" className="scroll-mt-4 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
-        <DonatePanel jarId={jar.id} receive={asset} sources={SOURCE_ASSETS} open={open} />
+        <section className="flex flex-col gap-6 lg:col-start-1">
+          <JarTabs story={jar.description} milestones={page.milestones} links={page.links} raisedUsd={raised} supporters={supporters} count={Number(jar.donations_count)} />
+          <p className="text-sm text-muted">
+            Donations arrive as {asset.symbol} in <CopyAccount account={jar.owner} />.{" "}
+            {CONFIDENTIAL_DELIVERY
+              ? "They land in the owner's Confidential near.com balance, ready to use."
+              : "They land in the public (legacy) balance; the owner moves them to Confidential in near.com."}
+          </p>
+        </section>
       </div>
-
-      <section className="flex flex-col gap-5 sm:gap-6 lg:col-start-1">
-        <Card className="flex flex-col gap-4">
-          <h2 className="font-semibold">Recent supporters</h2>
-          {feed.length === 0 ? (
-            <p className="text-muted">No donations yet. Be the first.</p>
-          ) : (
-            <ul className="flex flex-col divide-y divide-line">
-              {feed.map((f) => (
-                <FeedRow key={f.id} f={f} />
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <p className="text-sm text-muted">
-          Donations arrive as {asset.symbol} in <CopyAccount account={jar.owner} />.{" "}
-          {CONFIDENTIAL_DELIVERY
-            ? "They land in the owner's Confidential near.com balance, ready to use."
-            : "They land in the public (legacy) balance; the owner moves them to Confidential in near.com."}
-        </p>
-      </section>
 
       {open && <DonateCta />}
-    </div>
+    </Panel>
   );
-}
-
-function FeedRow({ f }: { f: FeedItem }) {
-  const src = SOURCE_ASSETS.find((a) => a.chain === f.sourceChain && a.symbol === f.sourceSymbol);
-  return (
-    <li className="flex items-start gap-3 py-3">
-      <Icon src={src?.icon} alt={f.sourceSymbol} size={28} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="truncate font-medium">{f.name ?? "Anonymous"}</span>
-          <span className="shrink-0 font-semibold">${(f.usdCents / 100).toFixed(2)}</span>
-        </div>
-        {f.message && <p className="whitespace-pre-line break-words text-muted">{f.message}</p>}
-        <span className="text-xs text-muted">
-          {f.sourceSymbol} on {src?.chainLabel ?? f.sourceChain} · {ago(f.at)}
-        </span>
-      </div>
-    </li>
-  );
-}
-
-function ago(ms: number): string {
-  const s = Math.max(1, Math.round((Date.now() - ms) / 1000));
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  if (s < 86_400) return `${Math.round(s / 3600)} h ago`;
-  return `${Math.round(s / 86_400)} d ago`;
 }

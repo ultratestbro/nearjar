@@ -3,9 +3,11 @@
 /* near.com-like palette: near-black surfaces, mint accent. NearJar is a concept, not a near.com product. */
 :root {
   --bg: #111111;
-  --surface: #1c1c1c;
+  --panel: #171717;
+  --surface: #1e1e1e;
   --surface-2: #262626;
-  --line: #2e2e2e;
+  --line: #2a2a2a;
+  --pill: #f2f2f2;
   --text: #f2f2f2;
   --muted: #9a9a9a;
   --accent: #6ee7a0;
@@ -15,6 +17,8 @@
 
 @theme inline {
   --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-pill: var(--pill);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-line: var(--line);
@@ -28,13 +32,19 @@
 }
 
 body {
-  background:
-    radial-gradient(1200px 500px at 50% -200px, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
   font-size: 16px;
 }
 
 ::selection {
   background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* horizontal pill rows scroll without a bar on phones */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

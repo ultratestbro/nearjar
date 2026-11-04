@@ -432,3 +432,23 @@ fn pretty_printed_action_first_payload_verifies() {
     let id = create_ok(&mut c, &ed.account(), ed.sign(&payload));
     assert_eq!(c.get_jar(id).unwrap().input.title, "Cats");
 }
+
+#[test]
+fn signed_page_fingerprint_is_accepted_and_ignored() {
+    // The web app signs a fingerprint of the jar page (cover, milestones, thank-you note…) next
+    // to the stored fields; the contract keeps the stored fields and ignores the rest.
+    let mut c = setup();
+    let owner = Ed::new(1);
+    let mut action = create_action("Cats");
+    action["jar"]["page"] = serde_json::json!("sha256:9f2c…");
+    let payload = envelope(&owner.account(), 1, NOW + 5 * MIN, action.clone());
+    ctx(relayer());
+    let _ = c.submit(owner.sign(&payload));
+    callback_ctx();
+    let id = c.on_key_checked(
+        owner.account().parse().unwrap(),
+        serde_json::from_value(action).unwrap(),
+        Ok(true),
+    );
+    assert_eq!(c.get_jar(id).unwrap().input.title, "Cats");
+}

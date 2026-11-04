@@ -4,10 +4,10 @@ import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 
 /** Share kit for one jar: QR, the X card it unfurls to, copy link, and an embed button. */
-export function ShareModal({ jarId, title, raisedUsd, onClose }: { jarId: string; title: string; raisedUsd: number; onClose: () => void }) {
+export function ShareModal({ path, title, raisedUsd, onClose }: { path: string; title: string; raisedUsd: number; onClose: () => void }) {
   const [qr, setQr] = useState("");
   const [copied, setCopied] = useState("");
-  const url = typeof window === "undefined" ? "" : `${window.location.origin}/j/${jarId}`;
+  const url = typeof window === "undefined" ? "" : `${window.location.origin}${path}`;
   const embed = `<a href="${url}" target="_blank" rel="noopener" style="display:inline-block;padding:10px 18px;border-radius:999px;background:#6ee7a0;color:#0b2a18;font:600 15px system-ui;text-decoration:none">Donate from any chain</a>`;
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function ShareModal({ jarId, title, raisedUsd, onClose }: { jarId: string
 
   return (
     <div role="dialog" aria-modal="true" aria-label={`Share ${title}`} className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="flex w-full max-w-2xl flex-col gap-5 rounded-3xl border border-line bg-surface p-6">
+      <div className="flex w-full max-w-2xl flex-col gap-5 rounded-[28px] border border-line bg-panel p-6">
         <div className="flex items-center justify-between gap-4">
           <h2 className="truncate text-xl font-semibold">Share “{title}”</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-2">×</button>

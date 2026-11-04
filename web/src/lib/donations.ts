@@ -307,6 +307,26 @@ export async function jarFeed(jarId: string, limit = 20): Promise<FeedItem[]> {
   }));
 }
 
+/** Latest delivered donations across the owner's jars, for the studio home. */
+export async function recentFor(jarIds: string[], limit = 8): Promise<(FeedItem & { jarId: string })[]> {
+  if (jarIds.length === 0) return [];
+  const r = await (await db()).execute({
+    sql: `SELECT id, jar_id, donor_name, message, COALESCE(delivered_usd_cents, usd_cents) AS usd, source_chain, source_symbol, updated_at
+      FROM donations WHERE status = 'delivered' AND jar_id IN (${jarIds.map(() => "?").join(",")}) ORDER BY updated_at DESC LIMIT ?`,
+    args: [...jarIds, limit],
+  });
+  return r.rows.map((x) => ({
+    id: String(x.id),
+    jarId: String(x.jar_id),
+    name: (x.donor_name as string | null) ?? null,
+    message: (x.message as string | null) ?? null,
+    usdCents: Number(x.usd),
+    sourceChain: String(x.source_chain),
+    sourceSymbol: String(x.source_symbol),
+    at: Number(x.updated_at),
+  }));
+}
+
 export interface PublicDonation {
   id: string;
   jarId: string;

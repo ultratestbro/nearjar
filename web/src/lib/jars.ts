@@ -2,6 +2,7 @@ import "server-only";
 
 import { NEARJAR_CONTRACT, view } from "./near";
 import { parseNearComAccount } from "./nearcom";
+import { jarIdBySlug } from "./pages";
 
 export { NEARJAR_CONTRACT };
 
@@ -52,4 +53,11 @@ export async function getJar(id: string): Promise<Jar | null> {
 
 export async function getJarsByOwner(owner: string): Promise<Jar[]> {
   return view<Jar[]>("get_jars_by_owner", { owner });
+}
+
+/** A jar by its id or its short link (/j/ana-film). */
+export async function resolveJar(idOrSlug: string): Promise<Jar | null> {
+  if (idOrSlug === "demo" || /^\d{1,19}$/.test(idOrSlug)) return getJar(idOrSlug);
+  const id = await jarIdBySlug(idOrSlug.toLowerCase());
+  return id ? getJar(id) : null;
 }

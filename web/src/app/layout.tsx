@@ -23,7 +23,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col font-sans">
         <WalletProvider>
         <header className="border-b border-line">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
             <Link href="/" className="flex shrink-0 items-center gap-2 text-lg font-semibold tracking-tight">
               <LogoMark size={36} />
               <span>
@@ -36,9 +36,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </nav>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:py-8">{children}</main>
         <footer className="border-t border-line">
-          <p className="mx-auto max-w-6xl px-4 py-6 text-xs text-muted">
+          <p className="mx-auto max-w-7xl px-4 py-6 text-xs text-muted">
             NearJar is an independent concept built for the NEAR Hackathon, not an official near.com product. Payments
             route through NEAR Intents; wallets and transactions by{" "}
             <a className="underline" href="https://docs.anywallet.tech">Any Wallet Kit</a>.

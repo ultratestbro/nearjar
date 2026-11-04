@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { ReceiveAsset } from "@/lib/assets";
 
 export interface PublicDonation {
@@ -69,7 +69,25 @@ function steps(d: PublicDonation, receive: ReceiveAsset): { label: string; hint:
   ];
 }
 
-export function DonationStatus({ initial, receive, etaSeconds }: { initial: PublicDonation; receive: ReceiveAsset; etaSeconds?: number }) {
+export function DonationStatus({
+  initial,
+  receive,
+  etaSeconds,
+  thanks,
+  sharePath,
+  jarTitle,
+  onAgain,
+}: {
+  initial: PublicDonation;
+  receive: ReceiveAsset;
+  etaSeconds?: number;
+  /** The creator's note, shown once the donation lands. */
+  thanks?: string;
+  sharePath?: string;
+  jarTitle?: string;
+  onAgain?: (deliveredUsd: number) => void;
+}) {
+  const [copied, setCopied] = useState(false);
   const [d, setD] = useState(initial);
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
@@ -97,14 +115,27 @@ export function DonationStatus({ initial, receive, etaSeconds }: { initial: Publ
   const done = d.status === "delivered";
   const bad = d.status === "refunded" || d.status === "failed" || d.status === "expired";
   return (
-    <aside className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-5">
-      <h2 className="text-lg font-semibold">{done ? "Thank you!" : "Donation in progress"}</h2>
-      <p className={done ? "text-accent" : bad ? "text-danger" : "text-text"}>{LABEL[d.status]}</p>
-      <ol className="flex flex-col gap-3">
-        {steps(d, receive).map((s) => (
-          <li key={s.label} className="flex items-start gap-3">
-            <StepIcon state={s.state} />
-            <div className="flex flex-col">
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-lg font-semibold">{done ? "Thank you!" : bad ? "Donation didn't go through" : "Donation on its way"}</h2>
+        <p className={`text-sm ${done ? "text-accent" : bad ? "text-danger" : "text-muted"}`}>{LABEL[d.status]}</p>
+      </div>
+
+      {done && thanks && (
+        <figure className="rounded-2xl bg-accent/10 p-4">
+          <p className="text-xs text-accent">A note from the creator</p>
+          <blockquote className="mt-1 whitespace-pre-line">{thanks}</blockquote>
+        </figure>
+      )}
+
+      <ol className="flex flex-col">
+        {steps(d, receive).map((s, i, all) => (
+          <li key={s.label} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <StepIcon state={s.state} />
+              {i < all.length - 1 && <span className={`my-1 w-px flex-1 ${s.state === "done" ? "bg-accent/60" : "bg-line"}`} />}
+            </div>
+            <div className="flex flex-col pb-4">
               <span className={s.state === "todo" ? "text-muted" : s.state === "failed" ? "text-danger" : "text-text"}>{s.label}</span>
               {s.hint && <span className="text-xs text-muted">{s.hint}</span>}
             </div>
@@ -112,56 +143,72 @@ export function DonationStatus({ initial, receive, etaSeconds }: { initial: Publ
         ))}
       </ol>
       {!TERMINAL.has(d.status) && (
-        <p className="text-sm text-muted">
+        <p className="-mt-2 text-sm text-muted">
           {elapsed(now - startedAt)} elapsed{etaSeconds ? ` · usually ~${Math.max(1, Math.round(etaSeconds / 60))} min` : ""}
         </p>
       )}
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-        <dt className="text-muted">Amount</dt>
-        <dd className="text-right">${(d.usdCents / 100).toFixed(2)} in {d.sourceSymbol}</dd>
-        {d.amountOut && (
-          <>
-            <dt className="text-muted">Creator got</dt>
-            <dd className="text-right">{fmt(d.amountOut, receive.decimals)} {receive.symbol}</dd>
-          </>
-        )}
-        {d.sourceTx && (
-          <>
-            <dt className="text-muted">Your tx</dt>
-            <dd className="truncate text-right"><TxLink chain={d.sourceChain} hash={d.sourceTx} /></dd>
-          </>
-        )}
-        {d.deliveryTx && (
-          <>
-            <dt className="text-muted">Delivery</dt>
-            <dd className="truncate text-right"><TxLink chain="near:mainnet" hash={d.deliveryTx} /></dd>
-          </>
-        )}
-        {d.recordedTx && d.recordedTx !== "already-recorded" && (
-          <>
-            <dt className="text-muted">Jar receipt</dt>
-            <dd className="truncate text-right font-mono">{d.recordedTx}</dd>
-          </>
-        )}
+
+      <dl className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-line text-sm">
+        <Row label="Amount">${(d.usdCents / 100).toFixed(2)} in {d.sourceSymbol}</Row>
+        {d.amountOut && <Row label="Creator got">{fmt(d.amountOut, receive.decimals)} {receive.symbol}</Row>}
+        {d.sourceTx && <Row label="Your tx"><TxLink chain={d.sourceChain} hash={d.sourceTx} /></Row>}
+        {d.deliveryTx && <Row label="Delivery"><TxLink chain="near:mainnet" hash={d.deliveryTx} /></Row>}
+        {d.recordedTx && d.recordedTx !== "already-recorded" && <Row label="Jar receipt"><span className="font-mono">{d.recordedTx}</span></Row>}
       </dl>
+
+      {done && (onAgain || sharePath) && (
+        <div className="grid grid-cols-2 gap-2">
+          {sharePath && (
+            <button
+              type="button"
+              onClick={() => {
+                const url = `${window.location.origin}${sharePath}`;
+                if (navigator.share) void navigator.share({ title: jarTitle ?? "NearJar", url }).catch(() => {});
+                else {
+                  void navigator.clipboard.writeText(url);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                }
+              }}
+              className="rounded-full border border-line px-4 py-3 text-sm font-medium hover:bg-surface-2"
+            >
+              {copied ? "Link copied" : "Share the jar"}
+            </button>
+          )}
+          {onAgain && (
+            <button type="button" onClick={() => onAgain((d.usdCents ?? 0) / 100)} className="rounded-full bg-accent px-4 py-3 text-sm font-medium text-accent-ink">
+              Give again
+            </button>
+          )}
+        </div>
+      )}
       {!TERMINAL.has(d.status) && (
         <p className="text-xs text-muted">
           This updates by itself. You can close it — the donation continues;{" "}
           <a className="underline" href={`/d/${d.id}`}>this link</a> shows its status later.
         </p>
       )}
-    </aside>
+    </div>
+  );
+}
+
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 px-4 py-2.5">
+      <dt className="shrink-0 text-muted">{label}</dt>
+      <dd className="min-w-0 truncate text-right">{children}</dd>
+    </div>
   );
 }
 
 function StepIcon({ state }: { state: StepState }) {
   if (state === "active")
-    return <span aria-label="in progress" className="mt-0.5 size-5 shrink-0 animate-spin rounded-full border-2 border-line border-t-accent" />;
+    return <span aria-label="in progress" className="size-5 shrink-0 animate-spin rounded-full border-2 border-line border-t-accent" />;
   if (state === "done")
-    return <span aria-label="done" className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-accent text-xs text-accent-ink">✓</span>;
+    return <span aria-label="done" className="grid size-5 shrink-0 place-items-center rounded-full bg-accent text-xs text-accent-ink">✓</span>;
   if (state === "failed")
-    return <span aria-label="failed" className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-danger text-xs text-bg">!</span>;
-  return <span aria-hidden className="mt-0.5 size-5 shrink-0 rounded-full border-2 border-line" />;
+    return <span aria-label="failed" className="grid size-5 shrink-0 place-items-center rounded-full bg-danger text-xs text-bg">!</span>;
+  return <span aria-hidden className="size-5 shrink-0 rounded-full border-2 border-line" />;
 }
 
 function elapsed(ms: number): string {
