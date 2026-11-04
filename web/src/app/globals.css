@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
-/* near.com-like palette: near-black surfaces, mint accent. NearJar is a concept, not a near.com product. */
+/* near.com's palette: its neutral greys (#262626 is its main dark) and its green. NearJar is a
+   concept, not a near.com product. */
 :root {
-  --bg: #111111;
-  --panel: #171717;
-  --surface: #1e1e1e;
-  --surface-2: #262626;
-  --line: #2a2a2a;
-  --pill: #f2f2f2;
-  --text: #f2f2f2;
-  --muted: #9a9a9a;
-  --accent: #6ee7a0;
-  --accent-ink: #0b2a18;
+  --bg: #1f1f1f;
+  --panel: #262626;
+  --surface: #303030;
+  --surface-2: #3a3a3a;
+  --line: #404040;
+  --pill: #fafafa;
+  --text: #fafafa;
+  --muted: #a1a1a1;
+  --accent: #00ec97;
+  --accent-ink: #171717;
   --danger: #f2777a;
 }
 
@@ -47,4 +48,19 @@ body {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* the hero's network orbits; still for people who ask for less motion */
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.orbit {
+  animation: orbit linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orbit {
+    animation: none;
+  }
 }

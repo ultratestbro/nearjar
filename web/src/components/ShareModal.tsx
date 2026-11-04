@@ -8,7 +8,7 @@ export function ShareModal({ path, title, raisedUsd, onClose }: { path: string; 
   const [qr, setQr] = useState("");
   const [copied, setCopied] = useState("");
   const url = typeof window === "undefined" ? "" : `${window.location.origin}${path}`;
-  const embed = `<a href="${url}" target="_blank" rel="noopener" style="display:inline-block;padding:10px 18px;border-radius:999px;background:#6ee7a0;color:#0b2a18;font:600 15px system-ui;text-decoration:none">Donate from any chain</a>`;
+  const embed = `<a href="${url}" target="_blank" rel="noopener" style="display:inline-block;padding:10px 18px;border-radius:999px;background:#00ec97;color:#171717;font:600 15px system-ui;text-decoration:none">Donate from any chain</a>`;
 
   useEffect(() => {
     let live = true;

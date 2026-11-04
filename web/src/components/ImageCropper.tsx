@@ -137,7 +137,7 @@ export function ImageCropper({
   }
 
   const view = <CropView edit={edit} kind={kind} className="size-full" />;
-  const fills = [...new Set([s.average, "#171717", "#ffffff"])];
+  const fills = [...new Set([s.average, "#262626", "#ffffff"])];
 
   return (
     <Modal title={kind === "cover" ? "Adjust the cover" : "Adjust the photo or logo"} onClose={busy ? () => {} : onCancel} wide>
@@ -203,9 +203,9 @@ export function ImageCropper({
         <div className="flex flex-col gap-2">
           <p className="text-xs uppercase tracking-wider text-muted">On your page</p>
           <div className="flex flex-wrap items-end gap-4 rounded-2xl bg-bg p-4">
-            <Header label="Phone" width={170} pageWidth={358} avatarPx={80} overlapPx={56} padPx={16} titlePx={30}
+            <Header label="Phone" width={170} pageWidth={358} avatarPx={80} overlapPx={40} avatarLeftPx={16} padPx={16} titlePx={30}
               cover={kind === "cover" ? view : cover} avatar={kind === "avatar" ? () => view : avatar} title={title} />
-            <Header label="Desktop" width={340} pageWidth={1216} avatarPx={80} overlapPx={64} padPx={32} titlePx={36}
+            <Header label="Desktop" width={340} pageWidth={724} avatarPx={80} overlapPx={48} avatarLeftPx={24} padPx={0} titlePx={36}
               cover={kind === "cover" ? view : cover} avatar={kind === "avatar" ? () => view : avatar} title={title} />
           </div>
         </div>
@@ -224,13 +224,18 @@ export function ImageCropper({
   );
 }
 
-/** The top of the jar page scaled down: the cover, the avatar over its bottom edge and the title. */
+/**
+ * The top of the jar page scaled down: the cover, the avatar over its bottom edge and the title.
+ * The sizes are the page's own (app/j/[id]/page.tsx): a full-bleed cover on phones, the left
+ * column's on desktops.
+ */
 function Header(p: {
   label: string;
   width: number;
   pageWidth: number;
   avatarPx: number;
   overlapPx: number;
+  avatarLeftPx: number;
   padPx: number;
   titlePx: number;
   cover: ReactNode;
@@ -244,10 +249,10 @@ function Header(p: {
     <div className="flex flex-col gap-1.5" style={{ width: p.width }}>
       <div className="overflow-hidden rounded-lg border border-line bg-panel">
         <div className="aspect-[8/3] w-full overflow-hidden [&>*]:size-full">{p.cover}</div>
-        <div style={{ padding: `0 ${p.padPx * k}px ${p.padPx * k}px` }}>
+        <div style={{ padding: `0 ${p.padPx * k}px ${Math.max(6, p.padPx * k)}px` }}>
           <div
             className="relative overflow-hidden rounded-full border-panel [&>*]:size-full"
-            style={{ width: size, height: size, marginTop: -p.overlapPx * k, borderWidth: border }}
+            style={{ width: size, height: size, marginTop: -p.overlapPx * k, marginLeft: (p.avatarLeftPx - p.padPx) * k, borderWidth: border }}
           >
             {p.avatar(size - 2 * border)}
           </div>

@@ -49,7 +49,7 @@ function load() {
       enableEIP6963: false,
       enableCoinbase: false,
       themeMode: "dark",
-      themeVariables: { "--w3m-accent": "#6ee7a0" },
+      themeVariables: { "--w3m-accent": "#00ec97" },
       features: { analytics: false, email: false, socials: false, swaps: false, onramp: false, history: false, send: false },
     });
     provider.on("display_uri", (uri: string) => void modal.open({ uri }));

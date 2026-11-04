@@ -35,7 +35,7 @@ export async function loadSource(file: Blob): Promise<Source> {
   const c = document.createElement("canvas");
   c.width = c.height = 1;
   const ctx = c.getContext("2d");
-  let average = "#171717";
+  let average = "#262626";
   if (ctx) {
     ctx.drawImage(bmp, 0, 0, 1, 1);
     const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
