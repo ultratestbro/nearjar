@@ -18,7 +18,7 @@ import {
 import type { ConnectedWallet } from "@/lib/wallet";
 import { JarAvatar, JarCover } from "./JarArt";
 import { Modal } from "./Modal";
-import { Chevron, Icon, ListCard, ListRow, PillTabs, Progress, money } from "./ui";
+import { Chevron, Icon, ListCard, ListRow, PillTabs, Progress, money, shortAccount } from "./ui";
 
 export type AssetWithIcon = ReceiveAsset & { icon: string };
 
@@ -343,7 +343,7 @@ export function JarEditor({
 
               <Field label="Paid to">
                 <ListCard>
-                  <ListRow icon={<Icon src={wallet.icon} alt={wallet.name} size={32} />} label={<span className="font-mono">nearcom:{short(wallet.account)}</span>} hint="Your near.com balance · set by the wallet you signed in with" value={<span aria-label="locked">🔒</span>} />
+                  <ListRow icon={<Icon src={wallet.icon} alt={wallet.name} size={32} />} label={<span className="font-mono">nearcom:{shortAccount(wallet.account)}</span>} hint="Your near.com balance · set by the wallet you signed in with" value={<span aria-label="locked">🔒</span>} />
                 </ListCard>
               </Field>
 
@@ -430,7 +430,6 @@ const ASSET_NOTE: Record<string, string> = {
 
 const input = "rounded-xl border border-line bg-surface-2 px-3 py-2.5 outline-none focus:border-accent";
 
-const short = (a: string) => (a.length > 22 ? `${a.slice(0, 10)}…${a.slice(-6)}` : a);
 
 function slugHint(s: "idle" | "checking" | "ok" | "taken" | "bad"): string {
   if (s === "checking") return "Checking…";

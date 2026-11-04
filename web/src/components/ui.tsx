@@ -120,8 +120,11 @@ export function Icon({ src, alt, size = 20 }: { src?: string | null; alt: string
   return <img src={src} alt={alt} width={size} height={size} loading="lazy" className="shrink-0 rounded-full bg-surface-2" />;
 }
 
+/** "0x63428e…afa299" → "0x6342…a299"; readable names like "ana.near" stay whole. */
 export function shortAccount(a: string): string {
-  return a.length > 18 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
+  if (/^0x[0-9a-f]{9,}$/i.test(a)) return `${a.slice(0, 6)}…${a.slice(-4)}`;
+  if (a.includes(".") && a.length <= 24) return a;
+  return a.length > 12 ? `${a.slice(0, 4)}…${a.slice(-4)}` : a;
 }
 
 export function money(usd: number, frac = 2): string {

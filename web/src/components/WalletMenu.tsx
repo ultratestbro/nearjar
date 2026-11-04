@@ -148,7 +148,7 @@ export function WalletMenu() {
                 <Icon src={wallet.icon} alt={wallet.name} size={32} />
                 <div className="min-w-0">
                   <p className="text-sm text-muted">{wallet.name} · your near.com account</p>
-                  <p className="break-all font-mono text-sm">nearcom:{wallet.account}</p>
+                  <p className="truncate font-mono text-sm" title={`nearcom:${wallet.account}`}>nearcom:{shortAccount(wallet.account)}</p>
                 </div>
               </div>
               <button
