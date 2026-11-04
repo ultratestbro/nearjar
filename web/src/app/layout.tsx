@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { HeaderNav } from "@/components/HeaderNav";
+import { LogoMark } from "@/components/Logo";
 import { WalletMenu } from "@/components/WalletMenu";
 import { WalletProvider } from "@/components/WalletProvider";
 import "./globals.css";
@@ -12,6 +13,8 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: "NearJar",
   description: "Donation jars for near.com accounts, payable from any chain.",
+  metadataBase: new URL("https://nearjar.xyz"),
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -22,7 +25,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <header className="border-b border-line">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
             <Link href="/" className="flex shrink-0 items-center gap-2 text-lg font-semibold tracking-tight">
-              <span className="grid size-7 place-items-center rounded-lg bg-accent text-sm text-accent-ink">J</span>
+              <LogoMark size={36} />
               <span>
                 Near<span className="text-accent">Jar</span>
               </span>
