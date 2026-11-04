@@ -7,6 +7,7 @@ import {
   COVER_GRADIENTS,
   DEFAULT_PRESETS,
   EMPTY_PAGE,
+  normalizeLink,
   PAGE_LIMITS,
   PRESET_CHOICES,
   SLUG,
@@ -155,11 +156,13 @@ export function JarEditor({
   const receive = assets.find((a) => a.id === d.receive) ?? assets[0]!;
   const goalUsd = d.goalOn && Number(d.goal) > 0 ? Number(d.goal) : null;
   const hasCover = !!d.cover || !!jar?.image_url;
+  const badLink = LINK_FIELDS.find((f) => d.links[f.kind].trim() && !normalizeLink(f.kind, d.links[f.kind]));
+  const linkProblem = badLink ? `${badLink.label}: use a link or a handle like ${badLink.placeholder}.` : "";
   const warn: Record<Section, boolean> = {
     page: !hasCover || !d.story.trim(),
     goal: d.milestones.some((m) => !m.label.trim() || !(Number(m.usd) >= 1)),
     payout: slugState === "taken" || slugState === "bad",
-    after: !d.thanks.trim(),
+    after: !d.thanks.trim() || !!badLink,
   };
   const problem = !d.title.trim()
     ? "Give the jar a title."
@@ -171,7 +174,7 @@ export function JarEditor({
           ? "That short link is taken."
           : slugState === "bad"
             ? "Short link: 3–40 letters, digits or dashes."
-            : "";
+            : linkProblem;
   const canPublish = !problem && (dirty || isNew) && slugState !== "checking";
 
   const status = isNew ? "Not published yet" : dirty ? "Unpublished changes" : "Live · no changes";
@@ -369,7 +372,7 @@ export function JarEditor({
               <Field label="Links" hint="Shown under your story.">
                 <div className="grid gap-2 sm:grid-cols-2">
                   {LINK_FIELDS.map((f) => (
-                    <label key={f.kind} className="flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-3 focus-within:border-accent">
+                    <label key={f.kind} className={`flex items-center gap-2 rounded-xl border bg-surface-2 px-3 focus-within:border-accent ${badLink?.kind === f.kind ? "border-danger/60" : "border-line"}`}>
                       <span className="w-20 shrink-0 text-sm text-muted">{f.label}</span>
                       <input value={d.links[f.kind]} placeholder={f.placeholder} aria-label={f.label}
                         onChange={(e) => set("links", { ...d.links, [f.kind]: e.target.value })}
@@ -377,6 +380,7 @@ export function JarEditor({
                     </label>
                   ))}
                 </div>
+                {linkProblem && <p className="text-sm text-danger">{linkProblem}</p>}
               </Field>
             </div>
           )}
