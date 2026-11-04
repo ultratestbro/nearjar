@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ReceiveAsset } from "@/lib/assets";
-import { prepareImage, uploadImage, type ImageKind } from "@/lib/image";
+import { centered, closeSource, loadSource, uploadImage, type ImageKind } from "@/lib/image";
 import {
   COVER_GRADIENTS,
   DEFAULT_PRESETS,
   EMPTY_PAGE,
+  imageUrl,
   normalizeLink,
   PAGE_LIMITS,
   PRESET_CHOICES,
@@ -16,6 +17,7 @@ import {
   type LinkKind,
 } from "@/lib/pageData";
 import type { ConnectedWallet } from "@/lib/wallet";
+import { ImageCropper, type Edit } from "./ImageCropper";
 import { JarAvatar, JarCover } from "./JarArt";
 import { Modal } from "./Modal";
 import { Chevron, Icon, ListCard, ListRow, PillTabs, Progress, money, shortAccount } from "./ui";
@@ -216,9 +218,9 @@ export function JarEditor({
 
           {section === "page" && (
             <div className="flex flex-col gap-6">
-              <Field label="Cover" hint="JPG, PNG or WebP · cropped to 1600×600">
-                <ImagePicker kind="cover" value={d.cover} onChange={(h) => set("cover", h)}
-                  preview={<JarCover page={d} legacyImage={jar?.image_url} className="h-36 w-full rounded-2xl sm:h-44" />} />
+              <Field label="Cover" hint="JPG, PNG or WebP · you frame it after picking">
+                <ImagePicker kind="cover" value={d.cover} onChange={(h) => set("cover", h)} page={d} title={d.title} legacyImage={jar?.image_url}
+                  preview={<JarCover page={d} legacyImage={jar?.image_url} className="aspect-[8/3] w-full rounded-2xl" />} />
                 {!d.cover && (
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted">No photo? Pick a color:</span>
@@ -233,7 +235,7 @@ export function JarEditor({
               <Field label="Photo or logo" hint="Shown round next to the title">
                 <div className="flex items-center gap-4">
                   <JarAvatar page={d} title={d.title} size={64} />
-                  <ImagePicker kind="avatar" value={d.avatar} onChange={(h) => set("avatar", h)} compact />
+                  <ImagePicker kind="avatar" value={d.avatar} onChange={(h) => set("avatar", h)} page={d} title={d.title} legacyImage={jar?.image_url} compact />
                 </div>
               </Field>
 
@@ -460,41 +462,100 @@ function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
   );
 }
 
-function ImagePicker({ kind, value, onChange, preview, compact }: { kind: ImageKind; value: string | null; onChange: (hash: string | null) => void; preview?: ReactNode; compact?: boolean }) {
+function ImagePicker({ kind, value, onChange, page, title, legacyImage, preview, compact }: {
+  kind: ImageKind;
+  value: string | null;
+  onChange: (hash: string | null) => void;
+  page: Pick<JarPageData, "cover" | "coverColor" | "avatar">;
+  title: string;
+  legacyImage?: string | null;
+  preview?: ReactNode;
+  compact?: boolean;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [over, setOver] = useState(false);
+  const [editing, setEditing] = useState<Edit | null>(null);
   const ref = useRef<HTMLInputElement>(null);
+  // the full picture behind the current crop, so Adjust can move out as well as in
+  const kept = useRef<{ hash: string; edit: Edit } | null>(null);
 
-  async function take(file: File | undefined) {
-    if (!file) return;
+  async function open(blob: Blob | undefined, from?: Edit) {
+    if (ref.current) ref.current.value = "";
+    if (!blob && !from) return;
     setError("");
+    if (from) return setEditing(from);
     setBusy(true);
     try {
-      onChange(await uploadImage(await prepareImage(file, kind)));
+      const source = await loadSource(blob!);
+      setEditing({ source, crop: centered(source), fill: source.average });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed.");
+      setError(e instanceof Error ? e.message : "Could not open that image.");
     } finally {
       setBusy(false);
-      if (ref.current) ref.current.value = "";
     }
   }
 
+  async function adjust() {
+    if (!value) return;
+    if (kept.current?.hash === value) return open(undefined, kept.current.edit);
+    setBusy(true);
+    try {
+      const r = await fetch(imageUrl(value));
+      if (!r.ok) throw new Error("Could not load the image.");
+      await open(await r.blob());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load the image.");
+      setBusy(false);
+    }
+  }
+
+  function drop(e: Edit) {
+    if (kept.current?.edit.source !== e.source) closeSource(e.source);
+  }
+
+  async function apply(blob: Blob, e: Edit) {
+    const hash = await uploadImage(blob);
+    if (kept.current && kept.current.edit.source !== e.source) closeSource(kept.current.edit.source);
+    kept.current = { hash, edit: e };
+    onChange(hash);
+    setEditing(null);
+  }
+
   const picker = (
-    <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/avif" className="sr-only" onChange={(e) => void take(e.target.files?.[0])} />
+    <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/avif" className="sr-only" onChange={(e) => void open(e.target.files?.[0])} />
   );
   const buttons = (
     <div className="flex flex-wrap items-center gap-2">
       <button type="button" onClick={() => ref.current?.click()} disabled={busy} className="rounded-full bg-surface-2 px-4 py-2 text-sm hover:bg-line disabled:opacity-50">
-        {busy ? "Uploading…" : value ? "Replace" : "Upload"}
+        {busy ? "Opening…" : value ? "Replace" : "Upload"}
       </button>
       {value && !busy && (
-        <button type="button" onClick={() => onChange(null)} className="rounded-full px-3 py-2 text-sm text-muted hover:text-danger">
-          Remove
-        </button>
+        <>
+          <button type="button" onClick={() => void adjust()} className="rounded-full bg-surface-2 px-4 py-2 text-sm hover:bg-line">
+            Adjust
+          </button>
+          <button type="button" onClick={() => onChange(null)} className="rounded-full px-3 py-2 text-sm text-muted hover:text-danger">
+            Remove
+          </button>
+        </>
       )}
       {error && <span className="text-sm text-danger">{error}</span>}
     </div>
+  );
+  const cropper = editing && (
+    <ImageCropper
+      kind={kind}
+      start={editing}
+      title={title}
+      cover={<JarCover page={page} legacyImage={legacyImage} mark={false} />}
+      avatar={(size) => <JarAvatar page={page} title={title} size={size} />}
+      onApply={apply}
+      onCancel={() => {
+        drop(editing);
+        setEditing(null);
+      }}
+    />
   );
 
   if (compact)
@@ -502,6 +563,7 @@ function ImagePicker({ kind, value, onChange, preview, compact }: { kind: ImageK
       <div>
         {picker}
         {buttons}
+        {cropper}
       </div>
     );
   return (
@@ -514,7 +576,7 @@ function ImagePicker({ kind, value, onChange, preview, compact }: { kind: ImageK
       onDrop={(e) => {
         e.preventDefault();
         setOver(false);
-        void take(e.dataTransfer.files[0]);
+        void open(e.dataTransfer.files[0]);
       }}
       className={`relative flex flex-col gap-3 rounded-2xl ${over ? "outline-2 outline-offset-4 outline-accent outline-dashed" : ""}`}
     >
@@ -523,11 +585,12 @@ function ImagePicker({ kind, value, onChange, preview, compact }: { kind: ImageK
         {preview}
         {!value && (
           <button type="button" onClick={() => ref.current?.click()} className="absolute inset-0 grid place-items-center rounded-2xl text-sm text-text/80 hover:bg-black/20">
-            <span className="rounded-full bg-black/50 px-4 py-2 backdrop-blur">{busy ? "Uploading…" : "Drop a photo here or click to upload"}</span>
+            <span className="rounded-full bg-black/50 px-4 py-2 backdrop-blur">{busy ? "Opening…" : "Drop a photo here or click to upload"}</span>
           </button>
         )}
       </div>
       {buttons}
+      {cropper}
     </div>
   );
 }
@@ -537,7 +600,7 @@ function PagePreview({ d, jar, goalUsd, receive }: { d: Draft; jar: StudioJar | 
   const milestones = d.milestones.filter((m) => m.label.trim() && Number(m.usd) >= 1).sort((a, b) => Number(a.usd) - Number(b.usd));
   return (
     <div className="overflow-hidden rounded-3xl border border-line bg-bg">
-      <JarCover page={d} legacyImage={jar?.image_url} className="h-24 w-full" mark={false} />
+      <JarCover page={d} legacyImage={jar?.image_url} className="aspect-[8/3] w-full" mark={false} />
       <div className="flex flex-col gap-3 p-4">
         <JarAvatar page={d} title={d.title} size={48} className="relative -mt-10 border-4 border-bg" />
         <div>

@@ -38,7 +38,7 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
 
   return (
     <Panel className="overflow-hidden pb-20 lg:pb-0">
-      <JarCover page={page} legacyImage={jar.image_url} className="h-40 w-full sm:h-56 lg:h-64" />
+      <JarCover page={page} legacyImage={jar.image_url} className="aspect-[8/3] w-full" />
 
       {/* Phones: jar, then the donate card, then the tabs. Desktop: the card is a sticky right column. */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:grid-rows-[auto_1fr] lg:gap-10 lg:p-8">

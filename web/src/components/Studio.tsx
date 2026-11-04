@@ -389,7 +389,7 @@ function JarDetail({
   return (
     <div className="flex flex-col gap-6">
       <div className="relative -mx-4 -mt-4 sm:-mx-8 sm:-mt-8">
-        <JarCover page={page} legacyImage={jar.image_url} className="h-36 w-full rounded-t-[28px] sm:h-44" />
+        <JarCover page={page} legacyImage={jar.image_url} className="aspect-[8/3] w-full rounded-t-[28px]" />
         <button type="button" onClick={onBack} className="absolute left-4 top-4 flex items-center gap-1 rounded-full bg-black/50 py-1.5 pl-2 pr-3 text-sm backdrop-blur sm:left-8">
           <Chevron dir="left" /> Home
         </button>
