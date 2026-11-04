@@ -329,7 +329,7 @@ export function DonatePanel(props: {
       </div>
 
       <div className="flex flex-col gap-3">
-        <div className="no-scrollbar flex gap-2 overflow-x-auto">
+        <div className="flex flex-wrap gap-2">
           {presets.map((p) => (
             <AmountPill key={p} on={!custom && usd === String(p)} onClick={() => { setCustom(false); setUsd(String(p)); }}>
               ${p}
