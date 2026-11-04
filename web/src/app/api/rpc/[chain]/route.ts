@@ -1,6 +1,7 @@
 /**
  * Read-mostly JSON-RPC proxy for donor wallets in the browser: keeps provider keys server-side and
- * allows only the methods the transfer builders need. Wallets broadcast transactions themselves.
+ * allows only the methods the transfer builders need. Wallets broadcast transactions themselves, except
+ * WalletConnect Solana wallets that only sign (solana_signTransaction): those go out via sendTransaction.
  */
 const UPSTREAM: Record<string, { url: () => string | undefined; methods: Set<string> }> = {
   solana: {
@@ -8,7 +9,7 @@ const UPSTREAM: Record<string, { url: () => string | undefined; methods: Set<str
     methods: new Set([
       "getLatestBlockhash", "getAccountInfo", "getMultipleAccounts", "getBalance", "getTokenAccountBalance",
       "getMinimumBalanceForRentExemption", "simulateTransaction", "getFeeForMessage", "getRecentPrioritizationFees",
-      "getSignatureStatuses", "getEpochInfo", "getSlot",
+      "getSignatureStatuses", "getEpochInfo", "getSlot", "sendTransaction",
     ]),
   },
   ton: {

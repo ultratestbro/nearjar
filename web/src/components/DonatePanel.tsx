@@ -62,7 +62,7 @@ export function DonatePanel(props: { jarId: string; receive: ReceiveAsset; sourc
     if (!wallet) return null;
     try {
       if (wallet.evm) return evmPayer(wallet.evm, wallet.address, wallet.name);
-      if (wallet.solana) return solanaPayer(wallet.solana.wallet, wallet.solana.account);
+      if (wallet.solanaSend) return solanaPayer(wallet.address, wallet.name, wallet.solanaSend);
     } catch {
       // a wallet that can sign messages but not send transactions: fall back to the picker
     }

@@ -1,6 +1,5 @@
 import { WalletAccountReadOnlySolana } from "@anywalletkit/wallet-solana";
 import { compileTransaction, getBase64EncodedWireTransaction } from "@solana/kit";
-import type { Wallet, WalletAccount } from "@wallet-standard/base";
 import type { PayInstruction, Payer } from "./types";
 
 /**
@@ -20,43 +19,18 @@ class DepositBuilder extends WalletAccountReadOnlySolana {
   }
 }
 
-type SignAndSend = {
-  signAndSendTransaction(i: { transaction: Uint8Array; account: WalletAccount; chain: string }): Promise<readonly { signature: Uint8Array }[]>;
-};
-
-/** A connected Wallet Standard wallet (Phantom, Solflare, Backpack…): SDK-built transfer, signed and sent by the wallet. */
-export function solanaPayer(wallet: Wallet, account: WalletAccount): Payer {
-  if (!("solana:signAndSendTransaction" in wallet.features)) throw new Error(`${wallet.name} can't send transactions here.`);
-  const builder = new DepositBuilder(account.address, { provider: `${window.location.origin}/api/rpc/solana` });
+/**
+ * A connected Solana wallet (Phantom, Solflare, Backpack… or a phone wallet over WalletConnect):
+ * SDK-built transfer, signed and sent through `send`, which returns the signature.
+ */
+export function solanaPayer(address: string, label: string, send: (wire: Uint8Array) => Promise<string>): Payer {
+  const builder = new DepositBuilder(address, { provider: `${window.location.origin}/api/rpc/solana` });
   return {
     family: "solana",
-    label: wallet.name,
-    address: account.address,
+    label,
+    address,
     async pay(p) {
-      const transaction = await builder.depositWire(p);
-      const [out] = await (wallet.features["solana:signAndSendTransaction"] as SignAndSend).signAndSendTransaction({
-        transaction,
-        account,
-        chain: "solana:mainnet",
-      });
-      if (!out) throw new Error("The wallet returned no signature.");
-      return base58(out.signature);
+      return send(await builder.depositWire(p));
     },
   };
-}
-
-const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-function base58(b: Uint8Array): string {
-  let n = 0n;
-  for (const x of b) n = n * 256n + BigInt(x);
-  let s = "";
-  while (n > 0n) {
-    s = B58[Number(n % 58n)] + s;
-    n /= 58n;
-  }
-  for (const x of b) {
-    if (x !== 0) break;
-    s = "1" + s;
-  }
-  return s;
 }
