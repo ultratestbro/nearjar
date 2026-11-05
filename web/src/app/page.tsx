@@ -17,7 +17,6 @@ export default function Home() {
     <div className="flex flex-col gap-16 py-6">
       <section className="grid items-center gap-10 pt-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="flex flex-col items-start gap-6">
-          <span className="rounded-full border border-line px-3 py-1 text-xs text-muted">A concept feature for near.com</span>
           <h1 className="max-w-3xl text-5xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
             A tip jar for your near.com account. <span className="text-accent">Payable from any chain.</span>
           </h1>
