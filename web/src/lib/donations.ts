@@ -152,6 +152,26 @@ export async function refreshDonation(id: string): Promise<DonationRow | null> {
   return getDonation(id);
 }
 
+/**
+ * Refreshes a jar's open donations (and delivered ones not yet in the contract), so the total
+ * moves even when the donor closed the status screen. Returns how many changed.
+ */
+export async function refreshPending(jarId: string): Promise<number> {
+  const r = await (await db()).execute({
+    sql: `SELECT id, status, recorded_tx FROM donations WHERE jar_id = ? AND created_at > ?
+      AND (status IN ('awaiting_deposit', 'processing') OR (status = 'delivered' AND recorded_tx IS NULL))
+      ORDER BY created_at DESC LIMIT 5`,
+    args: [jarId, Date.now() - 2 * 86_400_000],
+  });
+  const changed = await Promise.all(
+    r.rows.map(async (row) => {
+      const d = await refreshDonation(String(row.id)).catch(() => null);
+      return !!d && (d.status !== row.status || d.recorded_tx !== row.recorded_tx);
+    }),
+  );
+  return changed.filter(Boolean).length;
+}
+
 async function recordOnChain(d: DonationRow): Promise<void> {
   if (d.jar_id === "demo") return; // the demo jar is not in the contract
   // Claim the write first: two status polls must not both relay it.

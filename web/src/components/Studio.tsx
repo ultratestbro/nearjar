@@ -34,6 +34,8 @@ export function Studio({ assets, startNew = false }: { assets: readonly AssetWit
   const [reload, setReload] = useState(0);
   const [error, setError] = useState("");
   const [share, setShare] = useState<string | null>(null);
+  // a new jar's short link, known before the studio reloads its pages
+  const [shareSlug, setShareSlug] = useState<string | null>(null);
   const [toast, setToast] = useState("");
   const closeShare = useCallback(() => setShare(null), []);
 
@@ -142,7 +144,10 @@ export function Studio({ assets, startNew = false }: { assets: readonly AssetWit
                 setReload((n) => n + 1);
                 setView({ kind: "jar", id: r.jarId });
                 setToast(r.pageError ?? (!r.slugKept ? "Saved · the short link was taken, the numbered link works" : r.isNew ? "Your jar is live" : "Changes are live"));
-                if (r.isNew) setShare(r.jarId);
+                if (r.isNew) {
+                  setShareSlug(r.slug);
+                  setShare(r.jarId);
+                }
               }}
             />
           )
@@ -188,7 +193,7 @@ export function Studio({ assets, startNew = false }: { assets: readonly AssetWit
 
       {share && (() => {
         const j = jars.find((x) => x.id === share);
-        return <ShareModal path={`/j/${pageOf(share).slug ?? share}`} title={j?.title ?? "your jar"} raisedUsd={Number(j?.raised_usd_cents ?? 0) / 100} onClose={closeShare} />;
+        return <ShareModal path={`/j/${pageOf(share).slug ?? shareSlug ?? share}`} title={j?.title ?? "your jar"} raisedUsd={Number(j?.raised_usd_cents ?? 0) / 100} onClose={closeShare} />;
       })()}
 
       {toast && (

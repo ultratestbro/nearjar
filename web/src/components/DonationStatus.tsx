@@ -182,6 +182,11 @@ export function DonationStatus({
           )}
         </div>
       )}
+      {bad && onAgain && (
+        <button type="button" onClick={() => onAgain(0)} className="rounded-full border border-line px-4 py-3 text-sm font-medium hover:bg-surface-2">
+          Try again
+        </button>
+      )}
       {!TERMINAL.has(d.status) && (
         <p className="text-xs text-muted">
           This updates by itself. You can close it — the donation continues;{" "}

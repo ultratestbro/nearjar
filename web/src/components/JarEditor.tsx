@@ -115,7 +115,7 @@ export function JarEditor({
   wallet: ConnectedWallet;
   assets: readonly AssetWithIcon[];
   onClose: () => void;
-  onPublished: (r: { jarId: string; isNew: boolean; slugKept: boolean; pageError?: string }) => void;
+  onPublished: (r: { jarId: string; isNew: boolean; slugKept: boolean; slug: string | null; pageError?: string }) => void;
 }) {
   const initial = useMemo(() => draftOf(jar, page, assets), [jar, page, assets]);
   const [d, setD] = useState<Draft>(initial);
@@ -414,7 +414,7 @@ export function JarEditor({
           onClose={() => setSigning(false)}
           onDone={(r) => {
             setSigning(false);
-            onPublished({ ...r, isNew });
+            onPublished({ ...r, isNew, slug: r.slugKept && !r.pageError ? d.slug.trim() || null : null });
           }}
         />
       )}

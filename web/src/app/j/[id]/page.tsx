@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { DonatePanel } from "@/components/DonatePanel";
 import { JarAvatar, JarCover } from "@/components/JarArt";
@@ -26,6 +26,8 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
   if (!jar) notFound();
   const [feed, stored] = await Promise.all([jarFeed(jar.id).catch(() => [] as FeedItem[]), getPage(jar.id).catch(() => null)]);
   const page = stored?.page ?? EMPTY_PAGE;
+  // /j/11 and the old numbered links land on the jar's short link, the one it is shared as
+  if (page.slug && decodeURIComponent(id) !== page.slug) redirect(`/j/${page.slug}`);
 
   const asset = receiveAsset(jar.receive_asset) ?? RECEIVE_ASSETS[0];
   const raised = Number(jar.raised_usd_cents) / 100;

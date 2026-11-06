@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ReceiveAsset, SourceAsset } from "@/lib/assets";
 import { PAYERS, evmPayer, familyOf, solanaPayer, type PayInstruction, type Payer } from "@/lib/pay";
@@ -15,6 +16,35 @@ import { useWallet } from "./WalletProvider";
 const POPULAR = ["eip155:8453", "eip155:1", "eip155:42161", "solana:mainnet", "tron:728126428", "ton:-239", "near:mainnet", "bitcoin:mainnet"];
 
 const QUICK_NOTES = ["Keep going!", "Love your work", "From a fan", "Thank you"];
+
+const TERMINAL = new Set(["delivered", "refunded", "failed", "expired"]);
+
+/** The donation this browser started on a jar, so leaving the page doesn't lose its status. */
+interface Kept {
+  id: string;
+  at: number;
+  pay?: PayInstruction; // a manual deposit still needs the address and amount
+}
+
+const keyOf = (jarId: string) => `nearjar:donation:${jarId}`;
+
+function readKept(jarId: string): Kept | null {
+  try {
+    const k = JSON.parse(localStorage.getItem(keyOf(jarId)) ?? "null") as Kept | null;
+    return k && typeof k.id === "string" ? k : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeKept(jarId: string, k: Omit<Kept, "at"> | null) {
+  try {
+    if (k) localStorage.setItem(keyOf(jarId), JSON.stringify({ ...k, at: Date.now() }));
+    else localStorage.removeItem(keyOf(jarId));
+  } catch {
+    // private mode: the /d/ link still works
+  }
+}
 
 type Quote = {
   amountInFormatted: string;
@@ -71,8 +101,39 @@ export function DonatePanel(props: {
   const [manualPay, setManualPay] = useState<PayInstruction | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [refund, setRefund] = useState("");
-  // delivered in this visit, so the total moves without a reload
+  // delivered in this visit, so the total moves before the contract has it; a fresh total from
+  // the server already includes it
   const [given, setGiven] = useState(0);
+  const [seenRaised, setSeenRaised] = useState(props.raisedUsd);
+  if (seenRaised !== props.raisedUsd) {
+    setSeenRaised(props.raisedUsd);
+    setGiven(0);
+  }
+  const router = useRouter();
+
+  // Back on the jar: pick up the donation started here, and settle anyone's open donations so
+  // the total doesn't wait for the donor's tab.
+  useEffect(() => {
+    const jarId = props.jarId;
+    const kept = readKept(jarId);
+    if (kept) {
+      void fetch(`/api/donations/${kept.id}`)
+        .then((r) => r.json() as Promise<{ ok: boolean; donation?: PublicDonation }>)
+        .then((res) => {
+          const d = res.ok ? res.donation : undefined;
+          if (d && (!TERMINAL.has(d.status) || Date.now() - kept.at < 30 * 60_000)) {
+            setDonation(d);
+            if (kept.pay && d.status === "awaiting_deposit") setManualPay(kept.pay);
+          } else writeKept(jarId, null);
+        })
+        .catch(() => {});
+    }
+    void post(`/api/jars/${jarId}/sync`, {})
+      .then((res) => {
+        if ((res as { changed?: number }).changed) router.refresh();
+      })
+      .catch(() => {});
+  }, [props.jarId, router]);
 
   const usdCents = Math.round(Number(usd) * 100);
   const amountError = usdCents > 0 && usdCents < 100 ? "Minimum is $1." : usdCents > 1_000_000 ? "Maximum is $10,000." : "";
@@ -159,6 +220,7 @@ export function DonatePanel(props: {
 
       setBusy(`Confirm in ${connected.label}…`);
       const txHash = await connected.pay(res.pay);
+      writeKept(props.jarId, { id: res.donation.id });
       await post(`/api/donations/${res.donation.id}/submitted`, { txHash });
       setDonation({ ...res.donation, sourceTx: txHash });
     } catch (e) {
@@ -184,6 +246,7 @@ export function DonatePanel(props: {
         message,
       })) as { ok: boolean; donation?: PublicDonation; pay?: PayInstruction; error?: string };
       if (!res.ok || !res.donation || !res.pay) throw new Error(res.error ?? "Could not start the donation.");
+      writeKept(props.jarId, { id: res.donation.id, pay: res.pay });
       setManualPay(res.pay);
       setDonation(res.donation);
     } catch (e) {
@@ -194,7 +257,9 @@ export function DonatePanel(props: {
   }
 
   function giveAgain(deliveredUsd: number) {
+    writeKept(props.jarId, null);
     setGiven((g) => g + deliveredUsd);
+    if (deliveredUsd) router.refresh();
     setDonation(null);
     setManualPay(null);
     setStep("form");
@@ -206,7 +271,9 @@ export function DonatePanel(props: {
   if (donation) {
     return (
       <aside className={card}>
-        {manualPay && token && <ManualDeposit pay={manualPay} chainLabel={token.chainLabel} />}
+        {manualPay && (
+          <ManualDeposit pay={manualPay} chainLabel={props.sources.find((s) => s.chain === manualPay.chain)?.chainLabel ?? manualPay.chain} />
+        )}
         <DonationStatus
           initial={donation}
           receive={props.receive}
