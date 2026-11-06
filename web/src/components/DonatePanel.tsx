@@ -6,8 +6,8 @@ import type { ReceiveAsset, SourceAsset } from "@/lib/assets";
 import { PAYERS, evmPayer, familyOf, solanaPayer, type PayInstruction, type Payer } from "@/lib/pay";
 import { DonationStatus, type PublicDonation } from "./DonationStatus";
 import { ManualDeposit } from "./ManualDeposit";
+import { PayWithSheet, amountText, heldKey, type Held } from "./PayWithSheet";
 import { Modal } from "./Modal";
-import { Select } from "./Select";
 import { Chevron, Icon, ListCard, ListRow, Progress, money, shortAccount } from "./ui";
 import { WalletOptions } from "./WalletMenu";
 import { useWallet } from "./WalletProvider";
@@ -156,6 +156,25 @@ export function DonatePanel(props: {
   }, [wallet]);
   const sharedPayer = walletPayer?.family === family ? walletPayer : null;
   const connected = shared ? sharedPayer : payer && payer.family === family ? payer : null;
+
+  // the connected wallet's balances of every payable token, for the picker and the Pay with row
+  const holder = wallet && ["evm", "solana", "near"].includes(wallet.family) ? `${wallet.family}:${wallet.address}`
+    : payer?.family === "near" ? `near:${payer.address}` : "";
+  const [held, setHeld] = useState<{ holder: string; map: Map<string, Held> } | null>(null);
+  useEffect(() => {
+    if (!holder) return;
+    const i = holder.indexOf(":");
+    const ctrl = new AbortController();
+    fetch(`/api/balances?family=${holder.slice(0, i)}&address=${encodeURIComponent(holder.slice(i + 1))}`, { signal: ctrl.signal })
+      .then((r) => r.json() as Promise<{ ok: boolean; balances?: { chain: string; symbol: string; amount: string; usd: number | null }[] }>)
+      .then((res) => {
+        if (res.ok && res.balances) setHeld({ holder, map: new Map(res.balances.map((b) => [heldKey(b.chain, b.symbol), { amount: b.amount, usd: b.usd }])) });
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [holder]);
+  const balances = useMemo(() => (held && held.holder === holder ? held.map : new Map<string, Held>()), [held, holder]);
+  const tokenHeld = token ? balances.get(heldKey(token.chain, token.symbol)) : undefined;
   // chains without a browser wallet (Zcash, Litecoin, Doge, XRP…) are paid by sending manually
   const manual = manualOpen || (!shared && !payerDef);
 
@@ -419,7 +438,7 @@ export function DonatePanel(props: {
           onClick={() => setModal("pay")}
           icon={token ? <Icon src={token.icon} alt={token.symbol} size={32} /> : undefined}
           label="Pay with"
-          hint={token ? `${token.symbol} on ${token.chainLabel}` : "Pick a network"}
+          hint={token ? `${token.symbol} on ${token.chainLabel}${tokenHeld ? ` · ${amountText(tokenHeld.amount, token.decimals)} available` : ""}` : "Pick a network"}
           value={<span className="text-muted">Change</span>}
         />
         <ListRow
@@ -453,46 +472,26 @@ export function DonatePanel(props: {
       <p className="-mt-2 text-center text-xs text-muted">Live quotes from NEAR Intents. Nothing is charged until you confirm.</p>
 
       {modal === "pay" && (
-        <Modal title="Pay with" onClose={() => setModal(null)}>
-          <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-4 gap-2">
-              {POPULAR.map((id) => chains.find((c) => c.chain === id)).filter((c) => c !== undefined).map((c) => (
-                <button key={c.chain} type="button" onClick={() => setChain(c.chain)} title={c.label}
-                  className={`flex flex-col items-center gap-1.5 rounded-2xl border px-1 py-3 text-xs transition ${chain === c.chain ? "border-accent bg-accent/10" : "border-line bg-surface hover:bg-surface-2"}`}>
-                  <Icon src={c.icon} alt={c.label} size={28} />
-                  <span className="w-full truncate text-center">{c.label}</span>
-                </button>
-              ))}
-            </div>
-            <Select
-              label="More networks"
-              value={POPULAR.includes(chain) ? "" : chain}
-              onChange={setChain}
-              placeholder="More networks — Zcash, Litecoin, Doge, XRP…"
-              options={chains.filter((c) => !POPULAR.includes(c.chain)).map((c) => ({ value: c.chain, label: c.label, icon: c.icon }))}
-            />
-            <div className="flex flex-col gap-2">
-              <p className="text-sm text-muted">Token</p>
-              <div className="flex flex-wrap gap-2">
-                {tokens.map((t) => (
-                  <button key={t.symbol} type="button" onClick={() => setSymbol(t.symbol)}
-                    className={`flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 text-sm transition ${token?.symbol === t.symbol ? "bg-pill text-bg" : "bg-surface-2 hover:bg-line"}`}>
-                    <Icon src={t.icon} alt={t.symbol} size={22} />
-                    {t.symbol}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <p className="text-xs text-muted">
-              {shared
-                ? "You'll connect a wallet on the next step."
-                : payerDef
-                  ? `You'll connect ${payerDef.label} on the next step, or send it yourself.`
-                  : "No browser wallet for this network: you'll get a one-time address to send to from any wallet or exchange."}
-            </p>
-            <button type="button" onClick={() => setModal(null)} className={primary}>Done</button>
-          </div>
-        </Modal>
+        <PayWithSheet
+          sources={props.sources}
+          pinned={POPULAR}
+          chain={chain}
+          symbol={token?.symbol ?? ""}
+          balances={balances}
+          hint={
+            shared
+              ? "You'll connect a wallet on the next step."
+              : payerDef
+                ? `You'll connect ${payerDef.label} on the next step, or send it yourself.`
+                : "No browser wallet for this network: you'll get a one-time address to send to from any wallet or exchange."
+          }
+          onPick={(t) => {
+            setChain(t.chain);
+            setSymbol(t.symbol);
+            setModal(null);
+          }}
+          onClose={() => setModal(null)}
+        />
       )}
 
       {modal === "note" && (
