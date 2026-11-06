@@ -7,7 +7,7 @@ import { JarCover } from "./JarArt";
 import { JarEditor, type AssetWithIcon, type StudioJar } from "./JarEditor";
 import { ShareModal } from "./ShareModal";
 import { Chevron, Icon, ListCard, Panel, Pill, PillTabs, Progress, ago, money, shortAccount } from "./ui";
-import { WalletOptions } from "./WalletMenu";
+import { ConnectPanel } from "./WalletMenu";
 import { useWallet } from "./WalletProvider";
 
 type Activity = { jars: Record<string, { daily: number[]; supporters: number }>; networks: string[] };
@@ -67,7 +67,7 @@ export function Studio({ assets, startNew = false }: { assets: readonly AssetWit
       <Panel className="mx-auto flex max-w-xl flex-col gap-4 p-6 sm:p-8">
         <h1 className="text-2xl font-semibold">Creator studio</h1>
         <p className="text-muted">{restoring ? "Restoring your wallet…" : "Connect the wallet you use for near.com to make and manage your jars."}</p>
-        {!restoring && <WalletOptions />}
+        {!restoring && <ConnectPanel />}
       </Panel>
     );
 

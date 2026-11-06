@@ -16,6 +16,6 @@ export { solanaPayer } from "./solana";
 export const PAYERS: Record<string, { label: string; connect: () => Promise<Payer> }> = {
   tron: { label: "TronLink", connect: connectTronPayer },
   ton: { label: "TON wallet", connect: connectTonPayer },
-  near: { label: "NEAR wallet (Meteor)", connect: () => connectNearPayer("meteor-wallet") },
+  near: { label: "NEAR wallet", connect: connectNearPayer },
   bitcoin: { label: "Bitcoin wallet", connect: connectBtcPayer },
 };

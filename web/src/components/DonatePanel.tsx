@@ -9,7 +9,6 @@ import { ManualDeposit } from "./ManualDeposit";
 import { PayWithSheet, amountText, heldKey, type Held } from "./PayWithSheet";
 import { Modal } from "./Modal";
 import { Chevron, Icon, ListCard, ListRow, Progress, money, shortAccount } from "./ui";
-import { WalletOptions } from "./WalletMenu";
 import { useWallet } from "./WalletProvider";
 
 // shown as tiles; every other network is in "More networks"
@@ -140,9 +139,8 @@ export function DonatePanel(props: {
   const quotable = !!token && usdCents >= 100 && usdCents <= 1_000_000;
   const family = token ? familyOf(token.chain) : "";
   const payerDef = PAYERS[family];
-  // EVM and Solana pay through the wallet picked in the shared picker (logos, remembered on reload)
-  const { wallet } = useWallet();
-  const [pickerOpen, setPickerOpen] = useState(false);
+  // EVM and Solana pay through the shared wallet (AppKit's modal, remembered on reload)
+  const { wallet, connect, connecting, error: connectError } = useWallet();
   const shared = family === "evm" || family === "solana";
   const walletPayer = useMemo<Payer | null>(() => {
     if (!wallet) return null;
@@ -363,14 +361,11 @@ export function DonatePanel(props: {
           </div>
         ) : !connected && shared ? (
           <div className="flex flex-col gap-2">
-            <button type="button" onClick={() => setPickerOpen((v) => !v)} aria-expanded={pickerOpen} className={primary}>
-              Connect {family === "evm" ? "an EVM" : "a Solana"} wallet
+            <button type="button" onClick={() => void connect(family as "evm" | "solana")} disabled={!!connecting} className={primary}>
+              {connecting === family && <Spinner />}
+              {connecting === family ? "Waiting for the wallet…" : `Connect ${family === "evm" ? "an EVM" : "a Solana"} wallet`}
             </button>
-            {pickerOpen && (
-              <div className="rounded-2xl border border-line bg-panel p-3">
-                <WalletOptions families={[family as "evm" | "solana"]} onPicked={() => setPickerOpen(false)} />
-              </div>
-            )}
+            {connectError && <p className="text-sm text-danger">{connectError}</p>}
           </div>
         ) : !connected ? (
           <button type="button" onClick={onConnect} className={primary}>

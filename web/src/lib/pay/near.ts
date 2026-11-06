@@ -1,4 +1,5 @@
 import type { WalletSelector } from "@near-wallet-selector/core";
+import type { WalletSelectorModal } from "@near-wallet-selector/modal-ui";
 import type { PayInstruction, Payer } from "./types";
 
 // Wallets that sign locally broadcast through this node; NearJar never holds NEAR keys.
@@ -27,35 +28,59 @@ export function getSelector(): Promise<WalletSelector> {
   return selector;
 }
 
-/** NEAR wallets that can sign in a popup (Meteor, HERE, Intear) — no redirect mid-payment. */
-export async function nearWalletChoices(): Promise<{ id: string; name: string; icon: string }[]> {
-  const s = await getSelector();
-  return s.store
-    .getState()
-    .modules.filter((m) => m.metadata.available)
-    .map((m) => ({ id: m.id, name: m.metadata.name, icon: m.metadata.iconUrl }));
+let modal: Promise<WalletSelectorModal> | null = null;
+let onHide: (() => void) | null = null;
+
+function selectorModal(): Promise<WalletSelectorModal> {
+  modal ??= (async () => {
+    const [s, { setupModal }] = await Promise.all([getSelector(), import("@near-wallet-selector/modal-ui"), import("@near-wallet-selector/modal-ui/styles.css")]);
+    // no contract: NearJar only needs the account and its signatures, never a function-call key
+    const m = setupModal(s, { contractId: "", theme: "dark" });
+    m.on("onHide", ({ hideReason }) => hideReason === "user-triggered" && onHide?.());
+    return m;
+  })();
+  modal.catch(() => (modal = null));
+  return modal;
 }
 
-/** Signs in with a NEAR wallet (popup) or, `silent`, only picks up a session it already has. */
-export async function nearSignIn(walletId: string, { silent = false } = {}) {
+/**
+ * Signs in through wallet-selector's modal (Meteor, HERE, Intear — popups, no redirect mid-payment)
+ * or, `silent`, only picks up a session it already has.
+ */
+export async function nearSignIn({ silent = false } = {}) {
   const s = await getSelector();
-  const wallet = await s.wallet(walletId);
-  const state = s.store.getState();
-  const restored = state.selectedWalletId === walletId ? state.accounts.find((a) => a.active)?.accountId : undefined;
-  if (silent) {
-    if (!restored) throw new Error("not authorised");
-    return { wallet, accountId: restored };
+  const active = () => {
+    const st = s.store.getState();
+    return st.selectedWalletId ? st.accounts.find((a) => a.active)?.accountId : undefined;
+  };
+  if (!active()) {
+    if (silent) throw new Error("not authorised");
+    const m = await selectorModal();
+    await new Promise<void>((resolve, reject) => {
+      const sub = s.store.observable.subscribe(() => {
+        if (!active()) return;
+        sub.unsubscribe();
+        onHide = null;
+        m.hide();
+        resolve();
+      });
+      onHide = () => {
+        sub.unsubscribe();
+        onHide = null;
+        reject(new Error("cancelled"));
+      };
+      m.show();
+    });
   }
-  const accounts = (await wallet.signIn({ contractId: "", methodNames: [], accounts: [] } as never)) as { accountId: string }[] | undefined;
-  const accountId = accounts?.[0]?.accountId ?? s.store.getState().accounts.find((a) => a.active)?.accountId;
+  const accountId = active();
   if (!accountId) throw new Error("The wallet returned no NEAR account.");
-  return { wallet, accountId };
+  const wallet = await s.wallet();
+  const meta = s.store.getState().modules.find((x) => x.id === s.store.getState().selectedWalletId)?.metadata;
+  return { wallet, accountId, name: meta?.name ?? "NEAR wallet", icon: meta?.iconUrl ?? "" };
 }
 
-export async function connectNearPayer(walletId = "meteor-wallet"): Promise<Payer> {
-  const s = await getSelector();
-  const { wallet, accountId } = await nearSignIn(walletId);
-  const name = s.store.getState().modules.find((m) => m.id === walletId)?.metadata.name ?? "NEAR wallet";
+export async function connectNearPayer(): Promise<Payer> {
+  const { wallet, accountId, name } = await nearSignIn();
 
   return {
     family: "near",

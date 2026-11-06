@@ -1,12 +1,8 @@
-// Browser wallets for jar owners and donors: discover them with their names and icons, connect
-// (or silently reconnect after a reload), derive the near.com account and sign a NearJar message
-// in the envelope intents.near accepts. near.com derives the account from the login wallet the
-// same way: EVM → its 0x address, Solana and TON → the hex of the ed25519 public key, NEAR → the
-// account id. Phone wallets join EVM and Solana over WalletConnect (QR or deep link).
-
-import { getWallets } from "@wallet-standard/app";
-import type { Wallet, WalletAccount } from "@wallet-standard/base";
-import { WC_ICON, WC_PROJECT_ID } from "./walletconnect";
+// Wallets for jar owners and donors: connect (or silently reconnect after a reload), derive the
+// near.com account and sign a NearJar message in the envelope intents.near accepts. near.com derives
+// the account from the login wallet the same way: EVM → its 0x address, Solana and TON → the hex of
+// the ed25519 public key, NEAR → the account id. EVM and Solana connect through Reown AppKit
+// (extensions, phone wallets over WalletConnect), NEAR through wallet-selector, TON through TON Connect.
 
 export type WalletFamily = "evm" | "solana" | "near" | "ton";
 
@@ -19,144 +15,61 @@ export interface SignRequest {
 
 export type Eip1193 = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
 
-export interface WalletOption {
-  id: string;
+export interface ConnectedWallet {
   family: WalletFamily;
+  /** The wallet app, as it names itself. */
   name: string;
   icon: string;
-}
-
-export interface ConnectedWallet extends WalletOption {
   /** The address the wallet shows. */
   address: string;
   /** The near.com (intents.near) account id. */
   account: string;
   sign(request: SignRequest): Promise<Record<string, unknown>>;
-  /** EVM payments: the EIP-1193 provider (extension or WalletConnect session). */
+  /** EVM payments: an EIP-1193 provider. */
   evm?: Eip1193;
   /** Solana payments: signs and broadcasts a wire transaction, returns its signature. */
   solanaSend?: (wire: Uint8Array) => Promise<string>;
 }
 
-type Discovered = WalletOption & { evm?: Eip1193; solana?: Wallet };
+export const FAMILIES: WalletFamily[] = ["evm", "solana", "near", "ton"];
 
-const found = new Map<string, Discovered>();
-
-/** Starts EIP-6963 and Wallet Standard discovery; `onChange` fires as wallets announce themselves. */
-export function discoverWallets(onChange: (options: WalletOption[]) => void): () => void {
-  const emit = () => onChange([...found.values()].map(({ id, family, name, icon }) => ({ id, family, name, icon })));
-
-  const onAnnounce = (e: Event) => {
-    const d = (e as CustomEvent<{ info: { uuid: string; name: string; icon: string; rdns: string }; provider: Eip1193 }>).detail;
-    if (!d?.info?.rdns || !d.provider) return;
-    found.set(`evm:${d.info.rdns}`, { id: `evm:${d.info.rdns}`, family: "evm", name: d.info.name, icon: d.info.icon, evm: d.provider });
-    emit();
-  };
-  window.addEventListener("eip6963:announceProvider", onAnnounce);
-  window.dispatchEvent(new Event("eip6963:requestProvider"));
-
-  const standard = getWallets();
-  const addSolana = (ws: readonly Wallet[]) => {
-    for (const w of ws) {
-      if (!w.chains.some((c) => c.startsWith("solana:")) || !("solana:signMessage" in w.features)) continue;
-      found.set(`solana:${w.name}`, { id: `solana:${w.name}`, family: "solana", name: w.name, icon: w.icon, solana: w });
-    }
-    emit();
-  };
-  addSolana(standard.get());
-  const off = standard.on("register", (...ws) => addSolana(ws));
-
-  // NEAR wallets come from wallet-selector; TON Connect lists its wallets in its own modal
-  void import("./pay/near")
-    .then(({ nearWalletChoices }) => nearWalletChoices())
-    .then((choices) => {
-      for (const c of choices) found.set(`near:${c.id}`, { id: `near:${c.id}`, family: "near", name: c.name, icon: c.icon });
-      emit();
-    })
-    .catch(() => {});
-  found.set("ton:tonconnect", { id: "ton:tonconnect", family: "ton", name: "TON wallet", icon: TON_ICON });
-  if (WC_PROJECT_ID) {
-    for (const family of ["evm", "solana"] as const) {
-      found.set(`${family}:walletconnect`, { id: `${family}:walletconnect`, family, name: "WalletConnect", icon: WC_ICON });
-    }
-    emit();
+/** Connects a wallet of the family in its own modal. `silent` only picks up a session it already has. */
+export async function connectWallet(family: WalletFamily, { silent = false } = {}): Promise<ConnectedWallet> {
+  if (family === "near") return connectNear(silent);
+  if (family === "ton") return connectTon(silent);
+  const kit = await import("./appkit");
+  if (family === "evm") {
+    const a = await kit.kitConnect("eip155", { silent });
+    return evmWallet(a, await kit.kitEip1193(), a.address);
   }
-
-  // a lone legacy window.ethereum (no EIP-6963) still counts
-  const legacy = setTimeout(() => {
-    const eth = (window as unknown as { ethereum?: Eip1193 }).ethereum;
-    if (eth && ![...found.values()].some((w) => w.family === "evm")) {
-      found.set("evm:injected", { id: "evm:injected", family: "evm", name: "Browser wallet", icon: "", evm: eth });
-      emit();
-    }
-  }, 500);
-
-  return () => {
-    window.removeEventListener("eip6963:announceProvider", onAnnounce);
-    off();
-    clearTimeout(legacy);
-  };
-}
-
-/** Connects a discovered wallet. `silent` only succeeds if the site is already authorised (no popup). */
-export async function connectWallet(id: string, { silent = false } = {}): Promise<ConnectedWallet> {
-  const w = found.get(id);
-  if (!w) throw new Error("That wallet is not available in this browser.");
-  const base = { id: w.id, family: w.family, name: w.name, icon: w.icon };
-
-  if (id.endsWith(":walletconnect")) return connectWalletConnect(base, w.family === "solana" ? "solana" : "evm", silent);
-
-  if (w.evm) {
-    const eth = w.evm;
-    const [address] = (await eth.request({ method: silent ? "eth_accounts" : "eth_requestAccounts" })) as string[];
-    if (!address) throw new Error(silent ? "not authorised" : "The wallet returned no account.");
-    return evmWallet(base, eth, address);
-  }
-
-  if (w.family === "near") return connectNear(base, id.slice("near:".length), silent);
-  if (w.family === "ton") return connectTon(base, silent);
-
-  const wallet = w.solana!;
-  const { accounts } = await (wallet.features["standard:connect"] as {
-    connect(i?: { silent?: boolean }): Promise<{ accounts: readonly WalletAccount[] }>;
-  }).connect(silent ? { silent: true } : undefined);
-  const account = accounts.find((a) => a.chains.some((c) => c.startsWith("solana:"))) ?? accounts[0];
-  if (!account) throw new Error(silent ? "not authorised" : "The wallet returned no account.");
-  const pk = new Uint8Array(account.publicKey);
-  type SignAndSend = {
-    signAndSendTransaction(i: { transaction: Uint8Array; account: WalletAccount; chain: string }): Promise<readonly { signature: Uint8Array }[]>;
-  };
-  const send = wallet.features["solana:signAndSendTransaction"] as SignAndSend | undefined;
+  const a = await kit.kitConnect("solana", { silent });
+  const sol = await kit.kitSolana();
+  const pk = fromBase58(a.address);
   return {
-    ...base,
-    address: account.address,
+    family: "solana",
+    name: a.name,
+    icon: a.icon,
+    address: a.address,
     account: toHex(pk),
-    solanaSend: send
-      ? async (transaction) => {
-          const [out] = await send.signAndSendTransaction({ transaction, account, chain: "solana:mainnet" });
-          if (!out) throw new Error("The wallet returned no signature.");
-          return base58(out.signature);
-        }
-      : undefined,
+    solanaSend: sol.send,
     async sign({ message }) {
-      const [out] = await (wallet.features["solana:signMessage"] as {
-        signMessage(i: { account: WalletAccount; message: Uint8Array }): Promise<readonly { signature: Uint8Array }[]>;
-      }).signMessage({ account, message: new TextEncoder().encode(message) });
-      if (!out) throw new Error("The wallet returned no signature.");
+      const signature = await sol.signMessage(new TextEncoder().encode(message));
       return {
         standard: "raw_ed25519",
         payload: message,
-        public_key: `ed25519:${base58(pk)}`,
-        signature: `ed25519:${base58(out.signature)}`,
+        public_key: `ed25519:${a.address}`,
+        signature: `ed25519:${base58(signature)}`,
       };
     },
   };
 }
 
 /** EVM: personal_sign over the jar message; the near.com account is the lowercased address. */
-function evmWallet(base: WalletOption, eth: Eip1193, address: string): ConnectedWallet {
+function evmWallet(base: { name: string; icon: string }, eth: Eip1193, address: string): ConnectedWallet {
   return {
-    ...base,
+    family: "evm",
+    name: base.name,
+    icon: base.icon,
     address,
     account: address.toLowerCase(),
     evm: eth,
@@ -172,68 +85,14 @@ function evmWallet(base: WalletOption, eth: Eip1193, address: string): Connected
   };
 }
 
-/** WalletConnect: the phone wallet's session, shown under its own name and icon. */
-async function connectWalletConnect(base: WalletOption, family: "evm" | "solana", silent: boolean): Promise<ConnectedWallet> {
-  const wc = await import("./walletconnect");
-  const s = await wc.wcConnect(family === "evm" ? "eip155" : "solana", { silent });
-  const named = { ...base, name: s.peer.name || base.name, icon: s.peer.icon };
-  const address = s.accounts[0]!.split(":")[2]!;
-  if (family === "evm") return evmWallet(named, wc.wcEip1193(s), address);
-
-  const request = <T,>(method: string, params: Record<string, unknown>) => {
-    const out = s.provider.request<T>({ method, params }, wc.SOLANA_MAINNET);
-    wc.nudgeWallet(s);
-    return out;
-  };
-  return {
-    ...named,
-    address,
-    account: toHex(fromBase58(address)),
-    async sign({ message }) {
-      const { signature } = await request<{ signature: string }>("solana_signMessage", {
-        message: base58(new TextEncoder().encode(message)),
-        pubkey: address,
-      });
-      return { standard: "raw_ed25519", payload: message, public_key: `ed25519:${address}`, signature: `ed25519:${signature}` };
-    },
-    async solanaSend(wire) {
-      const transaction = btoa(String.fromCharCode(...wire));
-      if (s.methods.includes("solana_signAndSendTransaction")) {
-        return (await request<{ signature: string }>("solana_signAndSendTransaction", { transaction })).signature;
-      }
-      // sign-only wallets: put the signature into the single signer slot and broadcast ourselves
-      const out = await request<{ signature?: string; transaction?: string }>("solana_signTransaction", { transaction });
-      let signed: Uint8Array;
-      if (out.transaction) signed = Uint8Array.from(atob(out.transaction), (c) => c.charCodeAt(0));
-      else if (out.signature) (signed = wire.slice()).set(fromBase58(out.signature), 1);
-      else throw new Error("The wallet returned no signature.");
-      return broadcastSolana(signed);
-    },
-  };
-}
-
-async function broadcastSolana(signed: Uint8Array): Promise<string> {
-  const res = await fetch("/api/rpc/solana", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "sendTransaction",
-      params: [btoa(String.fromCharCode(...signed)), { encoding: "base64" }],
-    }),
-  });
-  const data = (await res.json()) as { result?: string; error?: { message?: string } };
-  if (!data.result) throw new Error(data.error?.message ?? "Solana RPC rejected the transaction.");
-  return data.result;
-}
-
 /** NEAR: NEP-413 signMessage; the near.com account is the NEAR account id. */
-async function connectNear(base: WalletOption, walletId: string, silent: boolean): Promise<ConnectedWallet> {
+async function connectNear(silent: boolean): Promise<ConnectedWallet> {
   const { nearSignIn } = await import("./pay/near");
-  const { wallet, accountId } = await nearSignIn(walletId, { silent });
+  const { wallet, accountId, name, icon } = await nearSignIn({ silent });
   return {
-    ...base,
+    family: "near",
+    name,
+    icon,
     address: accountId,
     account: accountId,
     async sign({ message, nonce, recipient }) {
@@ -251,15 +110,15 @@ async function connectNear(base: WalletOption, walletId: string, silent: boolean
 }
 
 /** TON: TON Connect signData (text); the near.com account is the hex of the wallet's public key. */
-async function connectTon(base: WalletOption, silent: boolean): Promise<ConnectedWallet> {
+async function connectTon(silent: boolean): Promise<ConnectedWallet> {
   const { tonConnect } = await import("./pay/ton");
   const c = await tonConnect({ silent });
   const pk = c.account?.publicKey?.toLowerCase();
   if (!c.account || !pk || !/^[0-9a-f]{64}$/.test(pk)) throw new Error("This TON wallet does not share its public key.");
-  const name = c.wallet && "name" in c.wallet ? String(c.wallet.name) : base.name;
-  const icon = c.wallet && "imageUrl" in c.wallet ? String(c.wallet.imageUrl) : base.icon;
+  const name = c.wallet && "name" in c.wallet ? String(c.wallet.name) : "TON wallet";
+  const icon = c.wallet && "imageUrl" in c.wallet ? String(c.wallet.imageUrl) : TON_ICON;
   return {
-    ...base,
+    family: "ton",
     name,
     icon,
     address: c.account.address,
@@ -280,11 +139,6 @@ async function connectTon(base: WalletOption, silent: boolean): Promise<Connecte
 }
 
 export async function disconnectWallet(w: ConnectedWallet): Promise<void> {
-  if (w.id.endsWith(":walletconnect")) {
-    const { wcDisconnect } = await import("./walletconnect");
-    await wcDisconnect();
-    return;
-  }
   if (w.family === "near") {
     const { getSelector } = await import("./pay/near");
     await getSelector()
@@ -300,8 +154,8 @@ export async function disconnectWallet(w: ConnectedWallet): Promise<void> {
       .catch(() => {});
     return;
   }
-  const off = (found.get(w.id)?.solana)?.features["standard:disconnect"] as { disconnect(): Promise<void> } | undefined;
-  await off?.disconnect().catch(() => {});
+  const { kitDisconnect } = await import("./appkit");
+  await kitDisconnect(w.family === "evm" ? "eip155" : "solana");
 }
 
 const TON_ICON = "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ton/info/logo.png";
