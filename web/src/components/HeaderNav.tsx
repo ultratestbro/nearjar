@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { GridIcon, PlusIcon } from "./ButtonIcons";
 
 const LINKS = [
-  { href: "/me", label: "Studio" },
-  { href: "/new", label: "Create a jar" },
+  { href: "/me", label: "Studio", icon: <GridIcon /> },
+  { href: "/new", label: "Create a jar", icon: <PlusIcon /> },
 ];
 
-/** Header links: pill buttons from `sm` up, folded into a menu dropdown on phones. */
+/** Header links: tactile buttons from `sm` up, folded into a menu dropdown on phones. */
 export function HeaderNav() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -33,8 +34,9 @@ export function HeaderNav() {
           <Link
             key={l.href}
             href={l.href}
-            className="whitespace-nowrap rounded-full border border-line px-3.5 py-1.5 text-sm text-muted hover:bg-surface hover:text-text"
+            className="btn-tactile h-9 px-3.5 text-sm"
           >
+            {l.icon}
             {l.label}
           </Link>
         ))}
@@ -46,7 +48,7 @@ export function HeaderNav() {
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-label="Menu"
-          className="grid size-9 place-items-center rounded-full border border-line hover:bg-surface"
+          className="btn-tactile size-9 justify-center"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
             {open ? (
@@ -63,8 +65,9 @@ export function HeaderNav() {
                 key={l.href}
                 href={l.href}
                 onClick={() => setOpen(false)}
-                className="rounded-xl px-3 py-2.5 text-sm hover:bg-surface-2"
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm hover:bg-surface-2"
               >
+                {l.icon}
                 {l.label}
               </Link>
             ))}

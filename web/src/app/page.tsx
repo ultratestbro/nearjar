@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { JarIcon, PlusIcon } from "@/components/ButtonIcons";
 import { ChainOrbit } from "@/components/ChainOrbit";
 import { LogoMark } from "@/components/Logo";
 import { SOURCE_ASSETS } from "@/lib/assets";
@@ -23,8 +24,8 @@ export default function Home() {
             A tip jar for your near.com account. <span className="text-accent">Payable from any chain.</span>
           </h1>
           <div className="flex flex-wrap gap-3">
-            <Link href="/new" className="rounded-full bg-accent px-6 py-3 font-medium text-accent-ink">Create a jar</Link>
-            <Link href="/j/demo" className="rounded-full border border-line px-6 py-3 font-medium hover:bg-surface">Try the demo jar</Link>
+            <Link href="/new" className="btn-tactile-accent btn-tactile-lg h-14 gap-2.5 px-6 text-[17px]"><PlusIcon size={18} />Create a jar</Link>
+            <Link href="/j/demo" className="btn-tactile btn-tactile-lg h-14 gap-2.5 px-6 text-[17px] font-medium"><JarIcon size={18} />Try the demo jar</Link>
           </div>
         </div>
         <div className="flex flex-col items-center gap-4">

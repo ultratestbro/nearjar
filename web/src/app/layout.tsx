@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Unbounded } from "next/font/google";
+import { Comfortaa, Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { HeaderNav } from "@/components/HeaderNav";
 import { LogoMark } from "@/components/Logo";
@@ -9,8 +9,8 @@ import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-// the wordmark only: a wide, round lowercase in the spirit of NEAR's own logotype
-const wordmark = Unbounded({ weight: "600", subsets: ["latin"], display: "swap" });
+// the wordmark only: a round geometric lowercase in the spirit of NEAR's own logotype
+const wordmark = Comfortaa({ weight: "700", subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "NearJar",
@@ -28,7 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
             <Link href="/" aria-label="NearJar home" className="flex shrink-0 items-center gap-2">
               <LogoMark size={36} />
-              <span className={`${wordmark.className} text-[19px] leading-none tracking-[-0.02em]`}>
+              <span className={`${wordmark.className} text-[22px] leading-none tracking-[-0.01em]`}>
                 near<span className="text-accent">jar</span>
               </span>
             </Link>

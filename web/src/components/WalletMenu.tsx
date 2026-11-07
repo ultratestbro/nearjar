@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { FAMILIES, type WalletFamily } from "@/lib/wallet";
+import { WalletIcon } from "./ButtonIcons";
 import { Modal } from "./Modal";
 import { Icon, shortAccount } from "./ui";
 import { useWallet } from "./WalletProvider";
@@ -133,7 +134,7 @@ export function WalletMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={wallet ? open : undefined}
         aria-haspopup={wallet ? "menu" : "dialog"}
-        className={`flex h-9 items-center gap-2 whitespace-nowrap rounded-full px-3.5 text-sm ${wallet ? "border border-line bg-surface hover:bg-surface-2" : "bg-accent font-medium text-accent-ink"}`}
+        className={`h-9 px-3.5 text-sm ${wallet ? "btn-tactile" : "btn-tactile-accent"}`}
       >
         {wallet ? (
           <>
@@ -144,6 +145,7 @@ export function WalletMenu() {
           "…"
         ) : (
           <>
+            <WalletIcon />
             <span className="sm:hidden">Connect</span>
             <span className="hidden sm:inline">Connect wallet</span>
           </>
