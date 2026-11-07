@@ -48,6 +48,9 @@ const isRecent = (at: number, ms: number) => Date.now() - at < ms;
 
 const plural = (n: number | string, one: string, many = `${one}s`) => `${n} ${Number(n) === 1 ? one : many}`;
 
+/** Font size that keeps a figure whole in a four-across stat card (an `@container`): long amounts step down. */
+const fitStyle = (text: string, max: string) => ({ fontSize: `min(${max}, ${Math.floor(160 / Math.max(text.length, 1))}cqi)` });
+
 export function Overview({
   loaded,
   jars,
@@ -100,7 +103,7 @@ export function Overview({
         </div>
         <div className="flex flex-wrap gap-2">
           {jars.length > 0 && (
-            <button type="button" onClick={() => share((jars.find((j) => !incomplete(j, pageOf(j.id))) ?? jars[0]!).id)}
+            <button type="button" onClick={() => share((jars.find((j) => j.status === "Open" && !incomplete(j, pageOf(j.id))) ?? jars.find((j) => j.status === "Open") ?? jars[0]!).id)}
               className="rounded-full bg-surface px-5 py-2.5 text-sm font-medium hover:bg-surface-2">
               Share a jar
             </button>
@@ -118,7 +121,7 @@ export function Overview({
       ) : (
         <>
           <section aria-label="Key numbers" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <div className="col-span-2 flex flex-col gap-2.5 rounded-3xl bg-accent p-5 text-accent-ink sm:col-span-1">
+            <div className="@container col-span-2 flex flex-col gap-2.5 rounded-3xl bg-accent p-5 text-accent-ink sm:col-span-1">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Total raised</span>
                 <button type="button" onClick={onHide} aria-label={hidden ? "Show amounts" : "Hide amounts"}
@@ -131,7 +134,7 @@ export function Overview({
                 </button>
               </div>
               {loaded ? (
-                <p className="truncate text-[2.75rem] font-bold leading-none tracking-tight">{mask(money(raised))}</p>
+                <p className="truncate font-bold leading-none tracking-tight" style={fitStyle(mask(money(raised)), "2.75rem")}>{mask(money(raised))}</p>
               ) : (
                 <span role="status" aria-label="Loading totals" className="block h-11 w-36 animate-pulse rounded-lg bg-accent-ink/15" />
               )}
@@ -141,7 +144,7 @@ export function Overview({
             <Kpi label="This week" loaded={loaded} value={mask(money(week))}
               hint={(() => {
                 const w = countSince(recent, 7 * DAY);
-                if (w.n > 0) return <><span className="text-accent">{plural(w.text, "donation")}</span> · last {ago(recent[0]!.at)}</>;
+                if (w.n > 0) return <span><span className="text-accent">{plural(w.text, "donation")}</span> · last {ago(recent[0]!.at)}</span>;
                 return recent[0] ? `Last donation ${ago(recent[0].at)}` : "No donations yet";
               })()} />
 
@@ -175,7 +178,9 @@ export function Overview({
                       </span>
                     ))}
                   </span>
-                  <span className="truncate">{nets.map((n) => chainOf(n)?.label ?? NETWORK_NAMES[n] ?? n).join(", ")}</span>
+                  <span className="truncate" title={nets.map((n) => chainOf(n)?.label ?? NETWORK_NAMES[n] ?? n).join(", ")}>
+                    {nets.map((n) => chainOf(n)?.label ?? NETWORK_NAMES[n] ?? n).join(", ")}
+                  </span>
                 </>
               )} />
           </section>
@@ -249,11 +254,13 @@ export function Overview({
 
 function Kpi({ label, value, hint, loaded, className = "" }: { label: string; value: ReactNode; hint: ReactNode; loaded: boolean; className?: string }) {
   return (
-    <div className={`flex min-w-0 flex-col gap-2.5 rounded-3xl bg-surface p-4 sm:p-5 ${className}`}>
+    <div className={`@container flex min-w-0 flex-col gap-2.5 rounded-3xl bg-surface p-4 sm:p-5 ${className}`}>
       <span className="text-sm text-muted">{label}</span>
       {loaded ? (
         <>
-          <p className="truncate text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">{value}</p>
+          <p className="truncate text-3xl font-semibold leading-tight tracking-tight sm:text-4xl" style={typeof value === "string" ? fitStyle(value, "2.25rem") : undefined}>
+            {value}
+          </p>
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">{hint}</div>
         </>
       ) : (
@@ -293,7 +300,8 @@ function RaisedChart({ loaded, daily, hidden }: { loaded: boolean; daily: number
   // bucket i is the 24 h that ended (n-1-i) days ago
   const dayOf = (i: number) => dayLabel(n - 1 - i);
   const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, k) => k * step);
-  const fmt = (v: number) => (hidden ? "••" : money(v, step < 1 ? 2 : 0));
+  // the axis column is narrow: $15k, not $15,000
+  const fmt = (v: number) => (hidden ? "••" : v >= 1000 ? `$${Number((v / 1000).toFixed(2))}k` : money(v, step < 1 ? 2 : 0));
   const at = hover ?? (n ? n - 1 : null);
   const pick = (e: PointerEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -410,7 +418,7 @@ function SetupCard({ jar, page, onEdit }: { jar: StudioJar; page: JarPageData; o
             )}
             <span className={`flex-1 ${s.done ? "line-through" : ""}`}>{s.label}</span>
             {!s.done && s.action && (
-              <button type="button" onClick={onEdit} className={`text-sm ${s === next ? "text-amber-300" : "text-muted"} hover:underline`}>{s.action}</button>
+              <button type="button" onClick={onEdit} aria-label={s.label} className={`text-sm ${s === next ? "text-amber-300" : "text-muted"} hover:underline`}>{s.action}</button>
             )}
           </li>
         ))}
@@ -473,7 +481,7 @@ function JarCard({ jar, page, mask, onOpen, onEdit, onShare }: {
               <b className="font-semibold">{mask(money(r))}</b>
               <span className="text-muted"> {goal ? `of ${money(goal, 0)}` : "raised"}</span>
             </span>
-            {goal && <span className="shrink-0 text-muted">{mask(`${pct > 0 && pct < 1 ? pct.toFixed(2) : Math.round(pct)}%`)}</span>}
+            {goal && <span className="shrink-0 text-muted">{mask(`${pct > 0 && pct < 1 ? Number(pct.toFixed(2)) : Math.round(pct)}%`)}</span>}
           </div>
           {goal && (
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
@@ -530,7 +538,7 @@ function PayWithStrip({ catalog, used }: { catalog: StudioCatalog; used: string[
   const named = rest.slice(0, 3).map((c) => c.label);
   return (
     <div className="mt-2.5 flex flex-wrap items-center gap-2.5 rounded-2xl bg-surface-2/60 px-4 py-3.5 text-sm text-muted">
-      Donors can also pay from
+      Donors can {used.length ? "also " : ""}pay from
       <span className="flex">
         {rest.slice(0, 5).map((c, i) => (
           <span key={c.chain} className={`rounded-full ring-2 ring-surface-2 ${i ? "-ml-1.5" : ""}`}>
