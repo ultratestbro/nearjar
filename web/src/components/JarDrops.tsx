@@ -3,19 +3,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LogoMark } from "./Logo";
 
-export type DropToken = { symbol: string; icon: string; chainIcon: string };
+/** A token and the network it lives on; `chain` matches the orbit logo's `data-chain`. */
+export type DropToken = { symbol: string; icon: string; chain: string; chainIcon: string };
 
-type Flight = { id: number; token: DropToken; angle: number; bend: number };
+/** A coin in the air: where it took off (% of the box) and how far its path bows sideways. */
+type Flight = { id: number; token: DropToken; x0: number; y0: number; bend: number };
 
-// where coins start (% of the box from its center), and the jar's mouth they drop into
-const FROM = 47;
+// the jar's mouth coins drop into, % of the box
 const MOUTH = { x: 50, y: 45 };
 const FLY_MS = 1400;
 
 /**
- * The jar at the middle of the orbits: every second or two a random token from a random network
- * flies in on a curve and drops through the lid, and the jar wobbles like a shaken piggy bank.
- * Nothing flies for people who ask for less motion, or while the tab is hidden.
+ * The jar at the middle of the orbits: every second or two a network's logo on the orbit sends one
+ * of its own tokens into the jar on a curve, and the jar wobbles like a shaken piggy bank. Nothing
+ * flies for people who ask for less motion, or while the tab is hidden.
  */
 export function JarDrops({ tokens }: { tokens: DropToken[] }) {
   const [flights, setFlights] = useState<Flight[]>([]);
@@ -24,15 +25,14 @@ export function JarDrops({ tokens }: { tokens: DropToken[] }) {
   const next = useRef(0);
 
   useEffect(() => {
+    const byChain = new Map<string, DropToken[]>();
+    for (const t of tokens) byChain.set(t.chain, [...(byChain.get(t.chain) ?? []), t]);
     if (!tokens.length || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let timer: ReturnType<typeof setTimeout>;
     const spawn = () => {
       if (document.visibilityState === "visible") {
-        const token = tokens[Math.floor(Math.random() * tokens.length)]!;
-        // from anywhere but straight below: a coin rising into the jar's bottom looks wrong
-        const angle = Math.PI * (0.85 + Math.random() * 1.3);
-        const bend = (Math.random() < 0.5 ? -1 : 1) * (8 + Math.random() * 10);
-        setFlights((f) => [...f, { id: next.current++, token, angle, bend }]);
+        const f = launch(jar.current, byChain);
+        if (f) setFlights((all) => [...all, { id: next.current++, ...f }]);
       }
       timer = setTimeout(spawn, 700 + Math.random() * 1300);
     };
@@ -75,13 +75,35 @@ export function JarDrops({ tokens }: { tokens: DropToken[] }) {
   );
 }
 
+/**
+ * Picks a network whose logo is on the orbit right now and one of its tokens; the coin takes off
+ * from that logo. Logos straight below the jar sit this one out: a coin rising into the jar's
+ * bottom looks wrong.
+ */
+function launch(jar: HTMLElement | null, byChain: Map<string, DropToken[]>): Omit<Flight, "id"> | null {
+  const box = jar?.closest<HTMLElement>("[data-orbit]")?.getBoundingClientRect();
+  if (!box?.width) return null;
+  const spots = [...document.querySelectorAll<HTMLElement>("[data-orbit] [data-chain]")].flatMap((el) => {
+    const tokens = byChain.get(el.dataset.chain!);
+    const r = el.getBoundingClientRect();
+    const x0 = ((r.left + r.width / 2 - box.left) / box.width) * 100;
+    const y0 = ((r.top + r.height / 2 - box.top) / box.height) * 100;
+    const below = y0 > 50 && Math.abs(x0 - 50) < (y0 - 50) * 0.7;
+    return tokens && !below ? [{ tokens, x0, y0 }] : [];
+  });
+  const spot = spots[Math.floor(Math.random() * spots.length)];
+  if (!spot) return null;
+  const token = spot.tokens[Math.floor(Math.random() * spot.tokens.length)]!;
+  const bend = (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 8);
+  return { token, x0: spot.x0, y0: spot.y0, bend };
+}
+
 function Coin({ flight, onLanded }: { flight: Flight; onLanded: (id: number) => void }) {
   const el = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    const { angle, bend } = flight;
-    const x0 = 50 + FROM * Math.cos(angle);
-    const y0 = 50 + FROM * Math.sin(angle);
+    const { x0, y0, bend } = flight;
+    const angle = Math.atan2(y0 - 50, x0 - 50);
     // the curve's midpoint, pushed sideways off the straight line, and a spot just above the lid
     const mx = (x0 + MOUTH.x) / 2 - bend * Math.sin(angle);
     const my = (y0 + MOUTH.y) / 2 + bend * Math.cos(angle) - 6;
