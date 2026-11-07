@@ -1,4 +1,5 @@
 import { COVER_GRADIENTS, imageUrl, type JarPageData } from "@/lib/pageData";
+import { LinkIcon } from "./LinkIcon";
 import { LogoMark } from "./Logo";
 
 type Art = Pick<JarPageData, "cover" | "coverColor" | "avatar">;
@@ -40,7 +41,8 @@ export function JarLinks({ links }: { links: JarPageData["links"] }) {
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((k) => (
-        <a key={k} href={links[k]} target="_blank" rel="noopener nofollow ugc" className="rounded-full border border-line px-3 py-1 text-sm text-muted hover:bg-surface hover:text-text">
+        <a key={k} href={links[k]} target="_blank" rel="noopener nofollow ugc" className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-sm text-muted hover:bg-surface hover:text-text">
+          <LinkIcon kind={k} size={14} />
           {LINK_LABEL[k]} ↗
         </a>
       ))}

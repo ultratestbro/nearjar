@@ -19,6 +19,7 @@ import {
 import type { ConnectedWallet } from "@/lib/wallet";
 import { ImageCropper, type Edit } from "./ImageCropper";
 import { JarAvatar, JarCover } from "./JarArt";
+import { LinkIcon } from "./LinkIcon";
 import { Modal } from "./Modal";
 import { Chevron, Icon, ListCard, ListRow, PillTabs, Progress, money, shortAccount } from "./ui";
 
@@ -375,7 +376,10 @@ export function JarEditor({
                 <div className="grid gap-2 sm:grid-cols-2">
                   {LINK_FIELDS.map((f) => (
                     <label key={f.kind} className={`flex items-center gap-2 rounded-xl border bg-surface-2 px-3 focus-within:border-accent ${badLink?.kind === f.kind ? "border-danger/60" : "border-line"}`}>
-                      <span className="w-20 shrink-0 text-sm text-muted">{f.label}</span>
+                      <span className="flex w-24 shrink-0 items-center gap-2 text-sm text-muted">
+                        <LinkIcon kind={f.kind} />
+                        {f.label}
+                      </span>
                       <input value={d.links[f.kind]} placeholder={f.placeholder} aria-label={f.label}
                         onChange={(e) => set("links", { ...d.links, [f.kind]: e.target.value })}
                         className="w-full min-w-0 bg-transparent py-2.5 outline-none" />
@@ -680,15 +684,17 @@ function SignModal({
   onClose: () => void;
   onDone: (r: { jarId: string; slugKept: boolean; pageError?: string }) => void;
 }) {
-  const [busy, setBusy] = useState("");
+  // where publishing is: nothing yet, then the three steps the modal lists
+  const [stage, setStage] = useState<"idle" | "prepare" | "sign" | "save">("idle");
   const [error, setError] = useState("");
   const page = useMemo(() => pageOf(d), [d]);
   const images = [d.cover, d.avatar].filter(Boolean).length;
+  const busy = stage !== "idle";
 
   async function sign() {
     setError("");
     try {
-      setBusy("Preparing…");
+      setStage("prepare");
       const jarFields = {
         title: d.title,
         description: d.story,
@@ -706,10 +712,10 @@ function SignModal({
       })) as { ok: boolean; message?: string; nonce?: string; recipient?: string; error?: string };
       if (!prep.ok || !prep.message || !prep.nonce || !prep.recipient) throw new Error(prep.error ?? "Could not prepare the jar.");
 
-      setBusy(`Sign in ${wallet.name}…`);
+      setStage("sign");
       const signed = await wallet.sign({ message: prep.message, nonce: prep.nonce, recipient: prep.recipient });
 
-      setBusy(jar ? "Saving on NEAR…" : "Creating the jar on NEAR…");
+      setStage("save");
       const res = (await post("/api/jars", { signed, page })) as { ok: boolean; jarId?: string; slugKept?: boolean; pageError?: string; error?: string };
       if (!res.ok || !res.jarId) throw new Error(res.error ?? "The jar was not saved.");
       onDone({ jarId: res.jarId, slugKept: res.slugKept ?? true, ...(res.pageError ? { pageError: res.pageError } : {}) });
@@ -717,34 +723,96 @@ function SignModal({
       const m = e instanceof Error ? e.message : "Something went wrong.";
       setError(/reject|denied|4001|cancel/i.test(m) ? "You cancelled in the wallet." : m);
     } finally {
-      setBusy("");
+      setStage("idle");
     }
   }
 
+  const steps = [
+    {
+      title: `Sign in ${wallet.name}`,
+      text: "One message. It isn't a transaction and costs nothing.",
+      icon: <Icon src={wallet.icon} alt={wallet.name} size={18} />,
+      active: stage === "prepare" || stage === "sign",
+    },
+    {
+      title: "NearJar sends it to NEAR",
+      text: "Our relayer pays the gas. The contract checks with near.com that the key is yours.",
+      active: stage === "save",
+    },
+    {
+      title: jar ? "The changes go live" : "Your jar goes live",
+      text: jar ? "Donors see the new version right away." : "You get its link to share, ready for donations.",
+      active: false,
+    },
+  ];
+  const at = stage === "save" ? 1 : 0;
+  const goal = d.goalOn && Number(d.goal) > 0 ? `${money(Number(d.goal), 0)} goal` : "No goal";
+
   return (
     <Modal title={jar ? "Publish changes" : "Publish your jar"} onClose={() => !busy && onClose()}>
-      <div className="flex flex-col gap-4">
-        <p className="text-sm text-muted">
-          You sign one message in {wallet.name}. No transaction and no gas: NearJar&apos;s relayer sends it, and the contract checks with
-          near.com that the key is yours.
-        </p>
-        <ListCard>
-          <ListRow label="Action" value={<span className="font-mono text-sm">{jar ? "update_jar" : "create_jar"}</span>} />
-          <ListRow label="Title" value={<span className="line-clamp-1 max-w-48">{d.title}</span>} />
-          <ListRow label="Goal" value={d.goalOn ? money(Number(d.goal), 0) : "No goal"} />
-          <ListRow label="Receive" value={receive.symbol} />
-          <ListRow label="Page" hint="cover, photo, milestones, amounts, note, links" value={images ? `${images} image${images === 1 ? "" : "s"} · fingerprint` : "fingerprint"} />
-        </ListCard>
-        <p className="text-xs text-muted">
-          The story and the fields above are stored by the NearJar contract. Images and the rest of the page are stored by NearJar; the signed text carries
-          their sha256 fingerprint, so nobody can change them without your signature.
-        </p>
+      <div className="flex flex-col gap-5">
+        <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+          <JarCover page={page} legacyImage={jar?.image_url} className="h-20 w-full" />
+          <div className="flex items-end gap-3 px-4 pb-3.5">
+            <JarAvatar page={page} title={d.title} size={52} className="-mt-7 ring-4 ring-surface" />
+            <div className="flex min-w-0 flex-col pt-2">
+              <p className="truncate font-semibold">{d.title.trim() || "Untitled jar"}</p>
+              <p className="flex items-center gap-1.5 truncate text-sm text-muted">
+                {goal} · paid out in <Icon src={receive.icon} alt={receive.symbol} size={14} /> {receive.symbol}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <ol className="flex flex-col">
+          {steps.map((s, i) => {
+            const done = busy && i < at;
+            return (
+              <li key={s.title} className="relative flex gap-3 pb-4 last:pb-0">
+                {i < steps.length - 1 && <span aria-hidden className="absolute bottom-0 left-[15px] top-8 w-px bg-line" />}
+                <span
+                  className={`grid size-8 shrink-0 place-items-center rounded-full text-sm font-semibold ${
+                    done ? "bg-accent text-accent-ink" : s.active ? "bg-accent/15 text-accent ring-1 ring-accent/60" : "bg-surface-2 text-muted"
+                  }`}
+                >
+                  {done ? "✓" : s.active ? <span className="size-4 animate-spin rounded-full border-2 border-accent/30 border-t-accent" /> : (s.icon ?? i + 1)}
+                </span>
+                <div className="flex min-w-0 flex-col gap-0.5 pt-1">
+                  <p className={`font-medium ${s.active ? "text-accent" : ""}`}>{s.title}</p>
+                  <p className="text-sm text-muted">{s.text}</p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+
+        <details className="group rounded-2xl border border-line">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm text-muted hover:text-text [&::-webkit-details-marker]:hidden">
+            What exactly you sign
+            <span className="transition group-open:rotate-90"><Chevron /></span>
+          </summary>
+          <div className="flex flex-col gap-3 px-4 pb-4">
+            <ListCard>
+              <ListRow label="Action" value={<span className="font-mono text-sm">{jar ? "update_jar" : "create_jar"}</span>} />
+              <ListRow label="Title" value={<span className="line-clamp-1 max-w-48">{d.title}</span>} />
+              <ListRow label="Goal" value={d.goalOn ? money(Number(d.goal), 0) : "No goal"} />
+              <ListRow label="Receive" value={receive.symbol} />
+              <ListRow label="Page" hint="cover, photo, milestones, amounts, note, links" value={images ? `${images} image${images === 1 ? "" : "s"} · fingerprint` : "fingerprint"} />
+            </ListCard>
+            <p className="text-xs text-muted">
+              The story and the fields above are stored by the NearJar contract. Images and the rest of the page are stored by NearJar; the signed text carries
+              their sha256 fingerprint, so nobody can change them without your signature.
+            </p>
+          </div>
+        </details>
+
         {error && <p className="text-sm text-danger">{error}</p>}
-        <button type="button" onClick={sign} disabled={!!busy}
+        <button type="button" onClick={sign} disabled={busy}
           className="flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink disabled:opacity-60">
           {busy && <span className="size-4 animate-spin rounded-full border-2 border-accent-ink/30 border-t-accent-ink" />}
-          {busy || `Sign in ${wallet.name}`}
+          {stage === "prepare" ? "Preparing…" : stage === "sign" ? `Waiting for ${wallet.name}…` : stage === "save" ? (jar ? "Saving on NEAR…" : "Creating the jar on NEAR…") : `Sign in ${wallet.name}`}
         </button>
+        <p className="-mt-2 text-center text-xs text-muted">No gas · no transaction · $0</p>
       </div>
     </Modal>
   );
