@@ -38,7 +38,7 @@ export function DonateCta({ raisedUsd, goalUsd }: { raisedUsd: number; goalUsd: 
         type="button"
         tabIndex={hidden ? -1 : 0}
         onClick={() => document.getElementById("donate")?.scrollIntoView({ behavior: "smooth" })}
-        className="h-12 shrink-0 rounded-full bg-accent px-[26px] font-semibold text-accent-ink"
+        className="btn-tactile-accent btn-tactile-lg h-12 shrink-0 justify-center px-[26px]"
       >
         Donate
       </button>

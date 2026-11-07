@@ -74,7 +74,7 @@ export function ConnectPanel({ families = FAMILIES, onConnected }: { families?: 
             onClick={async () => {
               if (await connect(family)) onConnected?.();
             }}
-            className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-ink disabled:opacity-60"
+            className="btn-tactile-accent px-4 py-2 text-sm"
           >
             {busy && <span className="size-3.5 animate-spin rounded-full border-2 border-accent-ink/30 border-t-accent-ink" />}
             {busy ? "Waiting for the wallet…" : `Connect ${FAMILY[family].title}`}

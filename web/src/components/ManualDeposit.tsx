@@ -51,7 +51,7 @@ function Field({ label, value, copy, mono }: { label: string; value: string; cop
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
         }}
-        className="shrink-0 rounded-full border border-line px-3 py-1 text-xs"
+        className="btn-tactile shrink-0 px-3 py-1 text-xs hover:bg-line"
       >
         {copied ? "Copied" : "Copy"}
       </button>

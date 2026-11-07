@@ -17,6 +17,7 @@ import {
   type LinkKind,
 } from "@/lib/pageData";
 import type { ConnectedWallet } from "@/lib/wallet";
+import { PlusIcon } from "./ButtonIcons";
 import { ImageCropper, type Edit } from "./ImageCropper";
 import { JarAvatar, JarCover } from "./JarArt";
 import { LinkIcon } from "./LinkIcon";
@@ -192,23 +193,23 @@ export function JarEditor({
   return (
     <div className="flex flex-col gap-5">
       <header className="sticky top-0 z-20 -mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b border-line bg-panel/95 px-4 py-3 backdrop-blur sm:-mx-8 sm:-mt-8 sm:px-8 sm:py-4">
-        <button type="button" onClick={onClose} aria-label="Back" className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-2 hover:bg-line">
+        <button type="button" onClick={onClose} aria-label="Back" className="btn-tactile size-9 shrink-0 justify-center">
           <Chevron dir="left" />
         </button>
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{d.title.trim() || (jar?.title ?? "New jar")}</p>
           <p className={`text-xs ${isNew || dirty ? "text-amber-300" : "text-muted"}`}>{status}</p>
         </div>
-        <button type="button" onClick={() => setPreview((v) => !v)} className="rounded-full border border-line px-4 py-2 text-sm lg:hidden">
+        <button type="button" onClick={() => setPreview((v) => !v)} className="btn-tactile h-9 px-4 text-sm lg:hidden">
           {preview ? "Edit" : "Preview"}
         </button>
         {!isNew && dirty && (
-          <button type="button" onClick={() => setD(initial)} className="hidden rounded-full border border-line px-4 py-2 text-sm hover:bg-surface-2 sm:block">
+          <button type="button" onClick={() => setD(initial)} className="btn-tactile hidden h-9 px-4 text-sm sm:inline-flex">
             Discard
           </button>
         )}
         <button type="button" disabled={!canPublish} onClick={() => setSigning(true)} title={problem || undefined}
-          className="rounded-full bg-accent px-5 py-2 text-sm font-medium text-accent-ink disabled:opacity-40">
+          className="btn-tactile-accent h-9 px-5 text-sm">
           Publish
         </button>
       </header>
@@ -294,13 +295,14 @@ export function JarEditor({
                         onChange={(e) => set("milestones", d.milestones.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
                         className={`${input} min-w-0 flex-1`} />
                       <button type="button" aria-label="Remove milestone" onClick={() => set("milestones", d.milestones.filter((_, j) => j !== i))}
-                        className="grid size-10 shrink-0 place-items-center rounded-full text-muted hover:bg-surface-2 hover:text-text">×</button>
+                        className="btn-tactile size-9 shrink-0 justify-center text-muted hover:text-text">×</button>
                     </div>
                   ))}
                   {d.milestones.length < PAGE_LIMITS.milestones && (
                     <button type="button" onClick={() => set("milestones", [...d.milestones, { usd: "", label: "" }])}
-                      className="self-start rounded-full border border-dashed border-line px-4 py-2 text-sm text-muted hover:text-text">
-                      + Add milestone
+                      className="btn-tactile h-9 self-start px-4 text-sm">
+                      <PlusIcon />
+                      Add milestone
                     </button>
                   )}
                 </div>
@@ -314,7 +316,7 @@ export function JarEditor({
                       <button key={p} type="button" aria-pressed={on}
                         disabled={!on && d.presets.length >= PAGE_LIMITS.presets}
                         onClick={() => set("presets", on ? (d.presets.length > 1 ? d.presets.filter((x) => x !== p) : d.presets) : [...d.presets, p].sort((a, b) => a - b))}
-                        className={`rounded-full px-4 py-2 text-sm font-medium transition disabled:opacity-40 ${on ? "bg-pill text-bg" : "bg-surface-2 hover:bg-line"}`}>
+                        className="btn-tactile h-9 px-4 text-sm font-medium">
                         ${p}
                       </button>
                     );
@@ -392,7 +394,7 @@ export function JarEditor({
           )}
 
           {next[section] ? (
-            <button type="button" onClick={() => setSection(next[section]!)} className="self-start rounded-full border border-line px-5 py-2.5 text-sm hover:bg-surface-2">
+            <button type="button" onClick={() => setSection(next[section]!)} className="btn-tactile h-10 self-start px-5 text-sm">
               Next: {sections.find((s) => s.id === next[section])!.label} →
             </button>
           ) : (
@@ -538,15 +540,15 @@ function ImagePicker({ kind, value, onChange, page, title, legacyImage, preview,
   );
   const buttons = (
     <div className="flex flex-wrap items-center gap-2">
-      <button type="button" onClick={() => ref.current?.click()} disabled={busy} className="rounded-full bg-surface-2 px-4 py-2 text-sm hover:bg-line disabled:opacity-50">
+      <button type="button" onClick={() => ref.current?.click()} disabled={busy} className="btn-tactile h-9 px-4 text-sm">
         {busy ? "Opening…" : value ? "Replace" : "Upload"}
       </button>
       {value && !busy && (
         <>
-          <button type="button" onClick={() => void adjust()} className="rounded-full bg-surface-2 px-4 py-2 text-sm hover:bg-line">
+          <button type="button" onClick={() => void adjust()} className="btn-tactile h-9 px-4 text-sm">
             Adjust
           </button>
-          <button type="button" onClick={() => onChange(null)} className="rounded-full px-3 py-2 text-sm text-muted hover:text-danger">
+          <button type="button" onClick={() => onChange(null)} className="btn-tactile h-9 px-4 text-sm text-muted hover:text-danger">
             Remove
           </button>
         </>
@@ -626,10 +628,10 @@ function PagePreview({ d, jar, goalUsd, receive }: { d: Draft; jar: StudioJar | 
           {goalUsd && <Progress pct={(raised / goalUsd) * 100} className="h-1.5" />}
           <div className="flex flex-wrap gap-1.5">
             {d.presets.map((p, i) => (
-              <span key={p} className={`rounded-full px-2.5 py-1 text-xs ${i === Math.min(1, d.presets.length - 1) ? "bg-pill text-bg" : "bg-surface-2"}`}>${p}</span>
+              <span key={p} className={`btn-tactile pointer-events-none rounded-[8px] px-2.5 py-1 text-xs ${i === Math.min(1, d.presets.length - 1) ? "bg-pill text-bg" : "bg-surface-2"}`}>${p}</span>
             ))}
           </div>
-          <span className="rounded-full bg-accent py-2 text-center text-sm font-medium text-accent-ink">Donate</span>
+          <span className="btn-tactile-accent pointer-events-none justify-center rounded-[10px] py-2 text-sm">Donate</span>
           <span className="flex items-center justify-center gap-1.5 text-[11px] text-muted">
             <Icon src={receive.icon} alt={receive.symbol} size={12} /> arrives as {receive.symbol} in near.com
           </span>
@@ -656,7 +658,7 @@ function PublishButton({ disabled, problem, onClick }: { disabled: boolean; prob
   return (
     <div className="flex flex-col gap-2">
       <button type="button" disabled={disabled} onClick={onClick}
-        className="btn-tactile-accent btn-tactile-lg h-14 w-full justify-center px-8 text-[17px] disabled:pointer-events-none disabled:opacity-40 sm:w-auto">
+        className="btn-tactile-accent btn-tactile-lg h-14 w-full justify-center px-8 text-[17px] sm:w-auto">
         Publish
       </button>
       {problem && <p className="text-sm text-danger">{problem}</p>}
@@ -828,7 +830,7 @@ function SignModal({
 
         {error && <p className="text-sm text-danger">{error}</p>}
         <button type="button" onClick={sign} disabled={busy}
-          className="flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink disabled:opacity-60">
+          className="btn-tactile-accent btn-tactile-lg h-13 w-full justify-center px-5">
           {busy && <span className="size-4 animate-spin rounded-full border-2 border-accent-ink/30 border-t-accent-ink" />}
           {stage === "prepare" ? "Preparing…" : stage === "sign" ? `Waiting for ${wallet.name}…` : stage === "save" ? (jar ? "Saving on NEAR…" : "Creating the jar on NEAR…") : `Sign in ${wallet.name}`}
         </button>

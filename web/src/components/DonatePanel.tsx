@@ -315,7 +315,7 @@ export function DonatePanel(props: {
     return (
       <aside className={card}>
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => setStep("form")} aria-label="Back" className="grid size-9 place-items-center rounded-full bg-surface-2 hover:bg-line">
+          <button type="button" onClick={() => setStep("form")} aria-label="Back" className="btn-tactile size-9 shrink-0 justify-center">
             <Chevron dir="left" />
           </button>
           <div>
@@ -344,7 +344,7 @@ export function DonatePanel(props: {
         {error && <p className="text-sm text-danger">{error}</p>}
 
         {!props.open ? (
-          <button type="button" disabled className={`${primary} opacity-50`}>Jar is closed</button>
+          <button type="button" disabled className={primary}>Jar is closed</button>
         ) : manual ? (
           <div className="flex flex-col gap-2">
             <label className="flex flex-col gap-1.5 text-sm text-muted">
@@ -515,7 +515,7 @@ export function DonatePanel(props: {
               className="rounded-xl border border-line bg-surface-2 px-3 py-2.5 outline-none focus:border-accent" />
             <div className="flex flex-wrap gap-2">
               {QUICK_NOTES.map((q) => (
-                <button key={q} type="button" onClick={() => setMessage(q)} className="rounded-full bg-surface-2 px-3 py-1.5 text-sm hover:bg-line">{q}</button>
+                <button key={q} type="button" onClick={() => setMessage(q)} aria-pressed={message === q} className="btn-tactile px-3 py-1.5 text-sm">{q}</button>
               ))}
             </div>
             <p className="text-xs text-muted">Shown on the jar page next to your donation. Leave the name empty to give anonymously.</p>
@@ -530,13 +530,12 @@ export function DonatePanel(props: {
 // six quick amounts read better as two rows of three than as 4 + 2
 const GRID: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-4", 5: "grid-cols-3", 6: "grid-cols-3" };
 
-const primary =
-  "flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105 disabled:opacity-50";
+const primary = "btn-tactile-accent btn-tactile-lg w-full justify-center px-5 py-3.5";
 
 function AmountPill({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" onClick={onClick} aria-pressed={on}
-      className={`h-12 rounded-[14px] text-base font-medium transition lg:h-auto lg:rounded-full lg:py-2.5 lg:text-sm ${on ? "bg-pill text-bg" : "bg-surface-2 text-text hover:bg-line"}`}>
+      className="btn-tactile h-12 justify-center text-base font-medium lg:h-auto lg:py-2.5 lg:text-sm">
       {children}
     </button>
   );

@@ -160,7 +160,7 @@ export function ImageCropper({
         </div>
 
         <div className="flex items-center gap-3">
-          <button type="button" aria-label="Zoom out" onClick={() => update((c) => ({ ...c, zoom: c.zoom / 1.15 }))} className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-2 text-lg hover:bg-line">
+          <button type="button" aria-label="Zoom out" onClick={() => update((c) => ({ ...c, zoom: c.zoom / 1.15 }))} className="btn-tactile size-9 shrink-0 justify-center text-lg">
             −
           </button>
           <input
@@ -173,10 +173,10 @@ export function ImageCropper({
             onChange={(e) => update((c) => ({ ...c, zoom: Math.exp(Number(e.target.value)) }))}
             className="w-full accent-[var(--accent)]"
           />
-          <button type="button" aria-label="Zoom in" onClick={() => update((c) => ({ ...c, zoom: c.zoom * 1.15 }))} className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-2 text-lg hover:bg-line">
+          <button type="button" aria-label="Zoom in" onClick={() => update((c) => ({ ...c, zoom: c.zoom * 1.15 }))} className="btn-tactile size-9 shrink-0 justify-center text-lg">
             +
           </button>
-          <button type="button" onClick={() => setEdit((e) => ({ ...e, crop: centered(e.source) }))} className="shrink-0 rounded-full px-3 py-2 text-sm text-muted hover:text-text">
+          <button type="button" onClick={() => setEdit((e) => ({ ...e, crop: centered(e.source) }))} className="btn-tactile h-9 shrink-0 px-3.5 text-sm">
             Reset
           </button>
         </div>
@@ -212,10 +212,10 @@ export function ImageCropper({
 
         {error && <p className="text-sm text-danger">{error}</p>}
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onCancel} disabled={busy} className="rounded-full px-5 py-3 text-sm text-muted hover:text-text disabled:opacity-50">
+          <button type="button" onClick={onCancel} disabled={busy} className="btn-tactile h-12 px-5 text-sm">
             Cancel
           </button>
-          <button type="button" onClick={() => void apply()} disabled={busy} className="rounded-full bg-accent px-6 py-3 font-medium text-accent-ink disabled:opacity-60">
+          <button type="button" onClick={() => void apply()} disabled={busy} className="btn-tactile-accent btn-tactile-lg h-12 justify-center px-6">
             {busy ? "Uploading…" : "Use this"}
           </button>
         </div>

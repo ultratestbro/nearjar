@@ -104,11 +104,11 @@ export function Overview({
         <div className="flex flex-wrap gap-2">
           {jars.length > 0 && (
             <button type="button" onClick={() => share((jars.find((j) => j.status === "Open" && !incomplete(j, pageOf(j.id))) ?? jars.find((j) => j.status === "Open") ?? jars[0]!).id)}
-              className="rounded-full bg-surface px-5 py-2.5 text-sm font-medium hover:bg-surface-2">
+              className="btn-tactile px-5 py-2.5 text-sm font-medium">
               Share a jar
             </button>
           )}
-          <a href="https://near.com" target="_blank" rel="noreferrer" className="rounded-full bg-surface px-5 py-2.5 text-sm font-medium hover:bg-surface-2">Open near.com ↗</a>
+          <a href="https://near.com" target="_blank" rel="noreferrer" className="btn-tactile px-5 py-2.5 text-sm font-medium">Open near.com ↗</a>
         </div>
       </section>
 
@@ -116,7 +116,7 @@ export function Overview({
         <div className="flex flex-col items-start gap-3 rounded-3xl border border-dashed border-line p-6">
           <p className="font-medium">No jars yet</p>
           <p className="text-sm text-muted">Make a page, share the link, and donations from any chain land in your near.com balance.</p>
-          <button type="button" onClick={create} className="rounded-full bg-accent px-5 py-2.5 font-medium text-accent-ink">Create your first jar</button>
+          <button type="button" onClick={create} className="btn-tactile-accent px-5 py-2.5">Create your first jar</button>
         </div>
       ) : (
         <>
@@ -125,7 +125,7 @@ export function Overview({
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Total raised</span>
                 <button type="button" onClick={onHide} aria-label={hidden ? "Show amounts" : "Hide amounts"}
-                  className="grid size-9 place-items-center rounded-full bg-accent-ink/10 hover:bg-accent-ink/20">
+                  className="btn-tactile size-9 justify-center">
                   <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden>
                     <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z" fill="none" stroke="currentColor" strokeWidth="1.4" />
                     <circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
@@ -201,7 +201,7 @@ export function Overview({
                         <Skeleton className="h-5 w-40" />
                         <Skeleton className="h-4 w-28" />
                         <Skeleton className="h-1.5 w-full rounded-full" />
-                        <Skeleton className="h-10 w-full rounded-full" />
+                        <Skeleton className="h-10 w-full rounded-[14px]!" />
                       </div>
                     </div>
                   ))
@@ -315,10 +315,10 @@ function RaisedChart({ loaded, daily, hidden }: { loaded: boolean; daily: number
           <h2 className="text-lg font-semibold">Raised over time</h2>
           <p className="text-sm text-muted">Cumulative, all jars · last {range} days</p>
         </div>
-        <div role="group" aria-label="Range" className="flex gap-1 rounded-full bg-panel p-1">
+        <div role="group" aria-label="Range" className="flex gap-1 rounded-[18px] bg-panel p-1">
           {RANGES.map((d) => (
             <button key={d} type="button" aria-pressed={range === d} onClick={() => { setRange(d); setHover(null); }}
-              className={`h-8 rounded-full px-3.5 text-sm ${range === d ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`}>
+              className="btn-tactile h-8 px-3.5 text-sm">
               {d}d
             </button>
           ))}
@@ -424,7 +424,7 @@ function SetupCard({ jar, page, onEdit }: { jar: StudioJar; page: JarPageData; o
         ))}
       </ul>
       <p className="text-sm text-muted">Pages with a cover and a story get more donations.</p>
-      <button type="button" onClick={onEdit} className="mt-auto h-11 rounded-full bg-amber-300 font-semibold text-bg">Finish setup</button>
+      <button type="button" onClick={onEdit} className="mt-auto h-11 rounded-[14px] bg-amber-300 font-semibold text-bg shadow-[inset_0_-3px_0_rgb(0_0_0/0.2)] transition-transform active:translate-y-0.5">Finish setup</button>
     </div>
   );
 }
@@ -450,7 +450,8 @@ function JarCard({ jar, page, mask, onOpen, onEdit, onShare }: {
   ) : (
     <span className="flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs"><span className="size-[7px] rounded-full bg-accent" />Live</span>
   );
-  const btn = "h-10 flex-1 rounded-full text-sm font-medium";
+  // the card is bg-surface, so its keys sit a step lighter
+  const btn = "btn-tactile h-10 flex-1 justify-center bg-surface-2 text-sm font-medium hover:bg-line";
 
   return (
     <article className="flex flex-col overflow-hidden rounded-3xl bg-surface">
@@ -490,13 +491,13 @@ function JarCard({ jar, page, mask, onOpen, onEdit, onShare }: {
           )}
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={onShare} className={`${btn} border border-line hover:bg-surface-2`}>Share</button>
+          <button type="button" onClick={onShare} className={btn}>Share</button>
           {!open ? (
-            <button type="button" onClick={onOpen} className={`${btn} border border-line hover:bg-surface-2`}>Details</button>
+            <button type="button" onClick={onOpen} className={btn}>Details</button>
           ) : setup ? (
-            <button type="button" onClick={onEdit} className={`${btn} bg-amber-300 font-semibold text-bg`}>Finish setup</button>
+            <button type="button" onClick={onEdit} className="h-10 flex-1 rounded-[14px] bg-amber-300 text-sm font-semibold text-bg shadow-[inset_0_-3px_0_rgb(0_0_0/0.2)] transition-transform active:translate-y-0.5">Finish setup</button>
           ) : (
-            <button type="button" onClick={onEdit} className={`${btn} border border-line hover:bg-surface-2`}>Edit</button>
+            <button type="button" onClick={onEdit} className={btn}>Edit</button>
           )}
         </div>
       </div>

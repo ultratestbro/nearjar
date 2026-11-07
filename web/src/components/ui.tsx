@@ -15,7 +15,7 @@ export function Pill({ children, tone = "muted" }: { children: ReactNode; tone?:
   return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs ${c}`}>{children}</span>;
 }
 
-/** near.com tabs: white pill for the active one, plain text for the rest. */
+/** Tabs as tactile buttons; the active one turns into the light pill. */
 export function PillTabs<T extends string>({
   tabs,
   value,
@@ -27,8 +27,9 @@ export function PillTabs<T extends string>({
   onChange: (id: T) => void;
   className?: string;
 }) {
+  // pb-0.5 leaves room for a pressed tab to sink inside the scroller
   return (
-    <div role="tablist" className={`no-scrollbar flex gap-1 overflow-x-auto ${className}`}>
+    <div role="tablist" className={`no-scrollbar flex gap-2 overflow-x-auto pb-0.5 ${className}`}>
       {tabs.map((t) => (
         <button
           key={t.id}
@@ -36,9 +37,7 @@ export function PillTabs<T extends string>({
           role="tab"
           aria-selected={t.id === value}
           onClick={() => onChange(t.id)}
-          className={`relative flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
-            t.id === value ? "bg-pill text-bg" : "text-muted hover:bg-surface hover:text-text"
-          }`}
+          className="btn-tactile relative shrink-0 gap-1.5 px-4 py-2 text-sm font-medium"
         >
           {t.label}
           {t.dot && <span aria-label="needs attention" className="size-1.5 rounded-full bg-amber-400" />}

@@ -27,7 +27,7 @@ export function Modal({ title, onClose, children, wide = false }: { title: React
       >
         <div className="flex items-center justify-between gap-4 px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
           <h2 className="truncate text-lg font-semibold">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-2 text-muted hover:text-text">
+          <button type="button" onClick={onClose} aria-label="Close" className="btn-tactile size-9 shrink-0 justify-center">
             <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
               <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>

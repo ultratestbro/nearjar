@@ -218,20 +218,20 @@ export function DonationStatus({
                   setTimeout(() => setCopied(false), 1500);
                 }
               }}
-              className="rounded-full border border-line px-4 py-3 text-sm font-medium hover:bg-surface-2"
+              className="btn-tactile justify-center px-4 py-3 text-sm font-medium"
             >
               {copied ? "Link copied" : "Share the jar"}
             </button>
           )}
           {onAgain && (
-            <button type="button" onClick={() => onAgain((d.usdCents ?? 0) / 100)} className="rounded-full bg-accent px-4 py-3 text-sm font-medium text-accent-ink">
+            <button type="button" onClick={() => onAgain((d.usdCents ?? 0) / 100)} className="btn-tactile-accent justify-center px-4 py-3 text-sm">
               Give again
             </button>
           )}
         </div>
       )}
       {bad && onAgain && (
-        <button type="button" onClick={() => onAgain(0)} className="rounded-full border border-line px-4 py-3 text-sm font-medium hover:bg-surface-2">
+        <button type="button" onClick={() => onAgain(0)} className="btn-tactile justify-center px-4 py-3 text-sm font-medium">
           Try again
         </button>
       )}
@@ -245,7 +245,7 @@ export function DonationStatus({
               setLinkCopied(true);
               setTimeout(() => setLinkCopied(false), 1500);
             }}
-            className="shrink-0 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-medium hover:bg-line"
+            className="btn-tactile shrink-0 px-3 py-1.5 text-xs font-medium"
           >
             {linkCopied ? "Copied" : "Copy link"}
           </button>

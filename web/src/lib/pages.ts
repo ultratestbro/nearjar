@@ -21,6 +21,7 @@ const SUPPORT_PAGE: StoredPage = {
     ...EMPTY_PAGE,
     tagline: "Built solo for the NEAR Hackathon",
     coverColor: 0,
+    avatar: "/icon-180.png",
     thanks: "Thank you for backing NearJar! Every bit goes into more chains, better wallets and the open SDK behind it.",
     links: { website: "https://docs.anywallet.tech" },
     slug: "support",

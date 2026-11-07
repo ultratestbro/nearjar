@@ -25,7 +25,7 @@ export function ShareModal({ path, title, raisedUsd, onClose }: { path: string; 
     setTimeout(() => setCopied(""), 1500);
   };
   const xPost = `https://x.com/intent/post?text=${encodeURIComponent(`Chip in to "${title}" from any chain`)}&url=${encodeURIComponent(url)}`;
-  const btn = "rounded-full border border-line px-4 py-2.5 text-sm hover:bg-surface-2";
+  const btn = "btn-tactile h-10 px-4 text-sm";
 
   return (
     <Modal title={`Share “${title}”`} onClose={onClose} wide>
@@ -38,7 +38,7 @@ export function ShareModal({ path, title, raisedUsd, onClose }: { path: string; 
             <span className="text-sm text-[#b9d8c6]">${raisedUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })} raised · chip in from any chain — USDC, ETH, SOL, BTC, TON…</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            <a href={xPost} target="_blank" rel="noreferrer" className="rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-ink">Post on X</a>
+            <a href={xPost} target="_blank" rel="noreferrer" className="btn-tactile-accent h-10 px-4 text-sm">Post on X</a>
             <button type="button" className={btn} onClick={() => copy("link", url)}>{copied === "link" ? "Link copied" : "Copy link"}</button>
             <button type="button" className={btn} onClick={() => copy("embed", embed)}>{copied === "embed" ? "Embed copied" : "Copy embed button"}</button>
           </div>

@@ -97,19 +97,19 @@ export function JarLinkRow({ links, ...share }: { links: JarPageData["links"] } 
     <div className="flex items-center gap-2">
       {LINK_KINDS.filter((k) => links[k]).map((k) => (
         <a key={k} href={links[k]} target="_blank" rel="noopener nofollow ugc" aria-label={LINK_LABEL[k]}
-          className="grid size-11 place-items-center rounded-full bg-surface text-text/90 hover:bg-surface-2">
+          className="btn-tactile size-11 justify-center">
           <LinkIcon kind={k} size={18} />
         </a>
       ))}
       <ShareButton path={share.sharePath} title={share.title} raisedUsd={share.raisedUsd}
-        className="ml-auto h-11 rounded-full border border-line px-4 text-sm font-medium hover:bg-surface" />
+        className="btn-tactile ml-auto h-11 px-4 text-sm font-medium" />
     </div>
   );
 }
 
 /** The story, the links as labelled pills (desktop) and the milestones. */
 export function JarAbout({ story, links, milestones, raisedUsd, ...share }: { story: string; links: JarPageData["links"]; milestones: Milestone[] } & ShareProps) {
-  const pill = "inline-flex items-center gap-2 rounded-full border border-line px-3.5 py-2 text-sm text-text/85 hover:bg-surface hover:text-text";
+  const pill = "btn-tactile h-9 px-3.5 text-sm";
   return (
     <section className="flex flex-col gap-3 pt-1.5 lg:gap-5 lg:pt-2">
       <h2 className="text-xl font-semibold tracking-tight lg:text-[22px]">About</h2>
@@ -187,7 +187,7 @@ export function JarSupporters({ rows, count, open }: { rows: SupporterRow[]; cou
           <p className="text-muted">Your name and a few words show up here, next to what you gave.</p>
           {open && (
             <button type="button" onClick={() => document.getElementById("donate")?.scrollIntoView({ behavior: "smooth" })}
-              className="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink lg:hidden">
+              className="btn-tactile-accent px-5 py-2.5 text-sm lg:hidden">
               Donate from any chain
             </button>
           )}
@@ -215,7 +215,7 @@ export function JarSupporters({ rows, count, open }: { rows: SupporterRow[]; cou
 
       {!all && rows.length > SHOWN && (
         <button type="button" onClick={() => setAll(true)}
-          className="h-12 rounded-full border border-line text-[15px] hover:bg-surface lg:h-auto lg:self-start lg:px-[18px] lg:py-2.5 lg:text-sm">
+          className="btn-tactile h-12 justify-center text-[15px] lg:h-auto lg:self-start lg:px-[18px] lg:py-2.5 lg:text-sm">
           Show all {rows.length} supporters
         </button>
       )}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { StudioCatalog } from "@/lib/assets";
 import { EMPTY_PAGE, type JarPageData } from "@/lib/pageData";
+import { PlusIcon } from "./ButtonIcons";
 import { JarCover } from "./JarArt";
 import { JarEditor, type AssetWithIcon, type StudioJar } from "./JarEditor";
 import { ShareModal } from "./ShareModal";
@@ -72,8 +73,8 @@ export function Studio({ assets, catalog = { chains: [], tokens: {} }, startNew 
   const nav = (
     <nav aria-label="Studio" className="flex flex-col gap-1">
       <button type="button" onClick={() => setView({ kind: "edit", id: null })}
-        className="mb-3 flex items-center justify-center gap-2 rounded-full bg-accent px-4 py-2.5 font-medium text-accent-ink">
-        + New jar
+        className="btn-tactile-accent mb-3 justify-center px-4 py-2.5">
+        <PlusIcon /> New jar
       </button>
       <SideItem active={view.kind === "home" && tab === "overview"} onClick={() => { setView({ kind: "home" }); setTab("overview"); }}>Home</SideItem>
       <SideItem active={view.kind === "home" && tab === "payouts"} onClick={() => { setView({ kind: "home" }); setTab("payouts"); }}>Payouts</SideItem>
@@ -112,16 +113,16 @@ export function Studio({ assets, catalog = { chains: [], tokens: {} }, startNew 
 
       {/* phones: the sidebar becomes a row of pills */}
       {view.kind !== "edit" && (
-        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 lg:hidden">
+        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 lg:hidden">
           <MobilePill active={view.kind === "home"} onClick={() => setView({ kind: "home" })}>Home</MobilePill>
-          {!loaded && [0, 1].map((i) => <Skeleton key={i} className="h-10 w-32 shrink-0 rounded-full" />)}
+          {!loaded && [0, 1].map((i) => <Skeleton key={i} className="h-10 w-32 shrink-0 rounded-[14px]!" />)}
           {jars.map((j) => (
             <MobilePill key={j.id} active={view.kind === "jar" && view.id === j.id} onClick={() => setView({ kind: "jar", id: j.id })}>
               <JarCover page={pageOf(j.id)} legacyImage={j.image_url} mark={false} className="size-5 rounded-md" />
               <span className="max-w-36 truncate">{j.title}</span>
             </MobilePill>
           ))}
-          <MobilePill active={false} onClick={() => setView({ kind: "edit", id: null })}>+ New</MobilePill>
+          <MobilePill active={false} onClick={() => setView({ kind: "edit", id: null })}><PlusIcon /> New</MobilePill>
         </div>
       )}
 
@@ -216,8 +217,7 @@ function SideItem({ active, onClick, children }: { active: boolean; onClick: () 
 
 function MobilePill({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick}
-      className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium ${active ? "bg-pill text-bg" : "bg-surface text-text"}`}>
+    <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className="btn-tactile shrink-0 px-4 py-2 text-sm font-medium">
       {children}
     </button>
   );
@@ -268,7 +268,7 @@ function JarDetail({
     <div className="flex flex-col gap-6">
       <div className="relative -mx-4 -mt-4 sm:-mx-8 sm:-mt-8">
         <JarCover page={page} legacyImage={jar.image_url} className="aspect-video w-full rounded-t-[28px]" />
-        <button type="button" onClick={onBack} className="absolute left-4 top-4 flex items-center gap-1 rounded-full bg-black/50 py-1.5 pl-2 pr-3 text-sm backdrop-blur sm:left-8">
+        <button type="button" onClick={onBack} className="btn-tactile absolute left-4 top-4 gap-1 py-1.5 pl-2 pr-3 text-sm sm:left-8">
           <Chevron dir="left" /> Home
         </button>
       </div>
@@ -282,9 +282,9 @@ function JarDetail({
           <p className="mt-1 font-mono text-sm text-muted">nearjar.xyz{path}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={onShare} className="rounded-full bg-pill px-5 py-2.5 text-sm font-medium text-bg">Share</button>
-          {open && <button type="button" onClick={onEdit} className="rounded-full bg-surface px-5 py-2.5 text-sm font-medium hover:bg-surface-2">Edit page</button>}
-          <Link href={path} className="rounded-full bg-surface px-5 py-2.5 text-sm font-medium hover:bg-surface-2">View ↗</Link>
+          <button type="button" onClick={onShare} className="btn-tactile-accent px-5 py-2.5 text-sm">Share</button>
+          {open && <button type="button" onClick={onEdit} className="btn-tactile px-5 py-2.5 text-sm font-medium">Edit page</button>}
+          <Link href={path} className="btn-tactile px-5 py-2.5 text-sm font-medium">View ↗</Link>
         </div>
       </div>
 
@@ -360,7 +360,7 @@ function Payouts({ account }: { account: string }) {
           <p className="font-semibold">Export for your accountant</p>
           <p className="text-sm text-muted">CSV · date, jar, donor, network, amount paid, received, USD, transactions</p>
         </div>
-        <a href={`/api/jars/export?owner=${encodeURIComponent(account)}`} className="rounded-full bg-pill px-5 py-2.5 text-sm font-medium text-bg">Download CSV</a>
+        <a href={`/api/jars/export?owner=${encodeURIComponent(account)}`} className="btn-tactile-accent px-5 py-2.5 text-sm">Download CSV</a>
       </div>
     </div>
   );

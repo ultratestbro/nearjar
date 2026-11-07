@@ -56,7 +56,9 @@ const HASH = /^[0-9a-f]{64}$/;
 // a letter somewhere, so a short link never looks like a jar id
 export const SLUG = /^(?=[a-z0-9-]*[a-z])[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
 
-export const imageUrl = (hash: string) => `/api/img/${hash}`;
+// uploads are stored by hash; a site path ("/icon-180.png") is only ever set by the server itself,
+// since parsePage accepts hashes alone
+export const imageUrl = (hash: string) => (hash.startsWith("/") ? hash : `/api/img/${hash}`);
 
 /** "Help Ana finish her film" → "help-ana-finish-her-film" (≤ 40 chars). */
 export function slugify(s: string): string {
