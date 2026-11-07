@@ -1,6 +1,6 @@
 import { Studio } from "@/components/Studio";
-import { RECEIVE_ASSETS, assetIcon } from "@/lib/assets";
+import { RECEIVE_ASSETS, assetIcon, studioCatalog } from "@/lib/assets";
 
 export default function NewJarPage() {
-  return <Studio startNew assets={RECEIVE_ASSETS.map((a) => ({ ...a, icon: assetIcon(a.id) }))} />;
+  return <Studio startNew assets={RECEIVE_ASSETS.map((a) => ({ ...a, icon: assetIcon(a.id) }))} catalog={studioCatalog()} />;
 }

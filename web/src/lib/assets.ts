@@ -50,3 +50,17 @@ export function sourceAsset(chain: string, symbol: string): SourceAsset | undefi
 export function assetIcon(assetId: string): string {
   return SOURCE_ASSETS.find((a) => a.assetId === assetId)?.icon ?? "";
 }
+
+/** Chain and token logos the studio shows next to donations, without shipping the SDK catalog. */
+export interface StudioCatalog {
+  chains: { chain: string; label: string; icon: string }[];
+  /** `${chain}|${symbol}` → token logo */
+  tokens: Record<string, string>;
+}
+
+export function studioCatalog(): StudioCatalog {
+  return {
+    chains: [...new Map(SOURCE_ASSETS.map((a) => [a.chain, { chain: a.chain, label: a.chainLabel, icon: a.chainIcon }])).values()],
+    tokens: Object.fromEntries(SOURCE_ASSETS.map((a) => [`${a.chain}|${a.symbol}`, a.icon])),
+  };
+}
