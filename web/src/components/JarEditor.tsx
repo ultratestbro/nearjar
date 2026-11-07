@@ -396,9 +396,13 @@ export function JarEditor({
               Next: {sections.find((s) => s.id === next[section])!.label} →
             </button>
           ) : (
-            <button type="button" onClick={() => setPreview(true)} className="self-start rounded-full border border-line px-5 py-2.5 text-sm hover:bg-surface-2 lg:hidden">
-              Preview the page →
-            </button>
+            // the last step ends on publishing, so nobody has to scroll back up to the header
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <PublishButton disabled={!canPublish} problem={problem} onClick={() => setSigning(true)} />
+              <button type="button" onClick={() => setPreview(true)} className="btn-tactile h-12 justify-center px-5 text-sm lg:hidden">
+                Preview the page →
+              </button>
+            </div>
           )}
         </div>
 
@@ -406,6 +410,9 @@ export function JarEditor({
           <p className="text-xs uppercase tracking-wider text-muted">Live preview</p>
           <PagePreview d={d} jar={jar} goalUsd={goalUsd} receive={receive} />
           <Checklist d={d} hasCover={hasCover} go={(s) => { setSection(s); setPreview(false); }} />
+          <div className="lg:hidden">
+            <PublishButton disabled={!canPublish} problem={problem} onClick={() => setSigning(true)} />
+          </div>
         </aside>
       </div>
 
@@ -640,6 +647,19 @@ function PagePreview({ d, jar, goalUsd, receive }: { d: Draft; jar: StudioJar | 
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The big publish button at the end of the form and under the phone preview. */
+function PublishButton({ disabled, problem, onClick }: { disabled: boolean; problem: string; onClick: () => void }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <button type="button" disabled={disabled} onClick={onClick}
+        className="btn-tactile-accent btn-tactile-lg h-14 w-full justify-center px-8 text-[17px] disabled:pointer-events-none disabled:opacity-40 sm:w-auto">
+        Publish
+      </button>
+      {problem && <p className="text-sm text-danger">{problem}</p>}
     </div>
   );
 }

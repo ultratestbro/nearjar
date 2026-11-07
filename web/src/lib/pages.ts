@@ -15,8 +15,26 @@ export interface StoredPage {
   txHash: string | null;
 }
 
+/** The developer's jar (id "demo") has no owner signature to store a page, so its page lives here. */
+const SUPPORT_PAGE: StoredPage = {
+  page: {
+    ...EMPTY_PAGE,
+    tagline: "Built solo for the NEAR Hackathon",
+    coverColor: 0,
+    thanks: "Thank you for backing NearJar! Every bit goes into more chains, better wallets and the open SDK behind it.",
+    links: { website: "https://docs.anywallet.tech" },
+    slug: "support",
+  },
+  hash: "",
+  txHash: null,
+};
+
 export async function getPages(jarIds: string[]): Promise<Record<string, StoredPage>> {
   if (jarIds.length === 0) return {};
+  if (jarIds.includes("demo")) {
+    const rest = await getPages(jarIds.filter((id) => id !== "demo"));
+    return { ...rest, demo: SUPPORT_PAGE };
+  }
   const r = await (await db()).execute({
     sql: `SELECT jar_id, page, hash, tx_hash FROM jar_pages WHERE jar_id IN (${jarIds.map(() => "?").join(",")})`,
     args: jarIds,

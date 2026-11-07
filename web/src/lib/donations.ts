@@ -173,7 +173,7 @@ export async function refreshPending(jarId: string): Promise<number> {
 }
 
 async function recordOnChain(d: DonationRow): Promise<void> {
-  if (d.jar_id === "demo") return; // the demo jar is not in the contract
+  if (d.jar_id === "demo") return; // the developer's support jar is not in the contract
   // Claim the write first: two status polls must not both relay it.
   const claim = await (await db()).execute({
     sql: "UPDATE donations SET recorded_tx = 'pending', updated_at = ? WHERE id = ? AND recorded_tx IS NULL",
