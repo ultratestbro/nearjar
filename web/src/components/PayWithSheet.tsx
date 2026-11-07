@@ -84,7 +84,7 @@ export function PayWithSheet({
           className="rounded-xl border border-line bg-surface-2 px-3 py-2.5 outline-none focus:border-accent"
         />
         <div className="-mx-5 flex h-[min(56dvh,480px)] border-y border-line sm:-mx-6">
-          <div role="tablist" aria-label="Networks" className="no-scrollbar flex w-[68px] shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-line bg-bg py-3">
+          <div role="tablist" aria-label="Networks" className="no-scrollbar flex w-[68px] shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-line bg-bg py-3 sm:w-52 sm:items-stretch sm:gap-0.5 sm:px-2">
             {[{ chain: ALL, label: "All networks", icon: "", held: false }, ...networks].map((n) => {
               const active = !searching && n.chain === net;
               return (
@@ -99,14 +99,16 @@ export function PayWithSheet({
                     setQ("");
                     setNet(n.chain);
                   }}
-                  className={`relative grid size-[52px] shrink-0 place-items-center rounded-2xl border transition ${active ? "border-accent/60 bg-accent/10" : "border-transparent hover:bg-surface"}`}
+                  className={`relative flex size-[52px] shrink-0 items-center justify-center gap-2.5 rounded-2xl border transition sm:h-11 sm:w-full sm:justify-start sm:rounded-xl sm:px-2.5 ${active ? "border-accent/60 bg-accent/10" : "border-transparent hover:bg-surface"}`}
                 >
                   {n.chain === ALL ? (
                     <span className="grid size-[30px] place-items-center rounded-full bg-surface-2 text-[10px] font-semibold text-muted">ALL</span>
                   ) : (
                     <Icon src={n.icon} alt={n.label} size={30} />
                   )}
-                  {n.held && <span className="absolute right-1.5 top-1.5 size-[7px] rounded-full bg-accent" />}
+                  {/* the network's name on wider screens; phones keep the narrow rail of logos */}
+                  <span className={`hidden min-w-0 flex-1 truncate text-left text-sm sm:block ${active ? "text-text" : "text-muted"}`}>{n.label}</span>
+                  {n.held && <span className="absolute right-1.5 top-1.5 size-[7px] rounded-full bg-accent sm:static sm:shrink-0" />}
                 </button>
               );
             })}
