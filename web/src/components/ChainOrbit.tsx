@@ -21,7 +21,7 @@ export function ChainOrbit({ chains, tokens }: { chains: Chain[]; tokens: DropTo
   });
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[460px] overflow-hidden" role="img" aria-label={`Donors pay from ${chains.map((c) => c.label).join(", ")}`}>
+    <div data-orbit className="relative mx-auto aspect-square w-full max-w-[460px] overflow-hidden" role="img" aria-label={`Donors pay from ${chains.map((c) => c.label).join(", ")}`}>
       {rings.map((ring, i) => (
         <div key={i} className="absolute inset-0">
           <div
@@ -35,6 +35,7 @@ export function ChainOrbit({ chains, tokens }: { chains: Chain[]; tokens: DropTo
                 <span
                   key={c.label}
                   title={c.label}
+                  data-chain={c.label}
                   className="absolute -translate-x-1/2 -translate-y-1/2"
                   style={{ left: `${50 + ring.r * Math.cos(a)}%`, top: `${50 + ring.r * Math.sin(a)}%` }}
                 >
