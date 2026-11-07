@@ -23,7 +23,7 @@ const SUPPORT_PAGE: StoredPage = {
     coverColor: 0,
     avatar: "/icon-180.png",
     thanks: "Thank you for backing NearJar! Every bit goes into more chains, better wallets and the open SDK behind it.",
-    links: { website: "https://anywallet.tech" },
+    links: { website: "https://anywallet.tech", x: "https://x.com/0xdanya_xo" },
     slug: "support",
   },
   hash: "",
