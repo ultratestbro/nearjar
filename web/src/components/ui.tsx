@@ -101,6 +101,11 @@ export function Chevron({ dir = "right" }: { dir?: "right" | "left" | "down" }) 
   );
 }
 
+/** A grey placeholder block that pulses while data loads; size it with classes. */
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <span aria-hidden className={`block animate-pulse rounded-lg bg-surface-2 ${className}`} />;
+}
+
 export function Progress({ pct, className = "" }: { pct: number; className?: string }) {
   return (
     <div className={`h-2 overflow-hidden rounded-full bg-surface-2 ${className}`}>

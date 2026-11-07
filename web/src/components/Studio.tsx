@@ -6,7 +6,7 @@ import { EMPTY_PAGE, type JarPageData } from "@/lib/pageData";
 import { JarCover } from "./JarArt";
 import { JarEditor, type AssetWithIcon, type StudioJar } from "./JarEditor";
 import { ShareModal } from "./ShareModal";
-import { Chevron, Icon, ListCard, Panel, Pill, PillTabs, Progress, ago, money, shortAccount } from "./ui";
+import { Chevron, Icon, ListCard, Panel, Pill, PillTabs, Progress, Skeleton, ago, money, shortAccount } from "./ui";
 import { ConnectPanel } from "./WalletMenu";
 import { useWallet } from "./WalletProvider";
 
@@ -86,7 +86,13 @@ export function Studio({ assets, startNew = false }: { assets: readonly AssetWit
       <SideItem active={view.kind === "home" && tab === "overview"} onClick={() => { setView({ kind: "home" }); setTab("overview"); }}>Home</SideItem>
       <SideItem active={view.kind === "home" && tab === "payouts"} onClick={() => { setView({ kind: "home" }); setTab("payouts"); }}>Payouts</SideItem>
       <p className="mt-5 px-3 pb-1 text-xs uppercase tracking-wider text-muted">Your jars</p>
-      {!loaded && <p className="px-3 text-sm text-muted">Loading…</p>}
+      {!loaded &&
+        [0, 1].map((i) => (
+          <span key={i} role="status" aria-label="Loading your jars" className="flex items-center gap-3 px-3 py-2">
+            <Skeleton className="size-7 shrink-0" />
+            <Skeleton className="h-3.5 w-28" />
+          </span>
+        ))}
       {jars.map((j) => (
         <SideItem key={j.id} active={view.kind !== "home" && view.id === j.id} onClick={() => setView({ kind: "jar", id: j.id })}>
           <span className="relative">
@@ -116,6 +122,7 @@ export function Studio({ assets, startNew = false }: { assets: readonly AssetWit
       {view.kind !== "edit" && (
         <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 lg:hidden">
           <MobilePill active={view.kind === "home"} onClick={() => setView({ kind: "home" })}>Home</MobilePill>
+          {!loaded && [0, 1].map((i) => <Skeleton key={i} className="h-10 w-32 shrink-0 rounded-full" />)}
           {jars.map((j) => (
             <MobilePill key={j.id} active={view.kind === "jar" && view.id === j.id} onClick={() => setView({ kind: "jar", id: j.id })}>
               <JarCover page={pageOf(j.id)} legacyImage={j.image_url} mark={false} className="size-5 rounded-md" />
@@ -131,7 +138,7 @@ export function Studio({ assets, startNew = false }: { assets: readonly AssetWit
 
         {view.kind === "edit" ? (
           view.id && !current ? (
-            <p className="text-muted">Loading…</p>
+            <DetailSkeleton />
           ) : (
             <JarEditor
               key={view.id ?? "new"}
@@ -165,7 +172,7 @@ export function Studio({ assets, startNew = false }: { assets: readonly AssetWit
               onShare={() => setShare(current.id)}
             />
           ) : (
-            <p className="text-muted">Loading…</p>
+            <DetailSkeleton />
           )
         ) : (
           <div className="flex flex-col gap-8">
@@ -269,11 +276,20 @@ function Overview({
               </svg>
             </button>
           </p>
-          <p className="text-5xl font-semibold tracking-tight">{mask(money(raised))}</p>
-          <p className="mt-1 text-sm text-muted">
-            {supporters} supporter{supporters === 1 ? "" : "s"} · {jars.length} jar{jars.length === 1 ? "" : "s"}
-            {nets.length > 0 && ` · paid from ${nets.map((n) => NETWORK_NAMES[n] ?? n).slice(0, 4).join(", ")}`}
-          </p>
+          {loaded ? (
+            <>
+              <p className="text-5xl font-semibold tracking-tight">{mask(money(raised))}</p>
+              <p className="mt-1 text-sm text-muted">
+                {supporters} supporter{supporters === 1 ? "" : "s"} · {jars.length} jar{jars.length === 1 ? "" : "s"}
+                {nets.length > 0 && ` · paid from ${nets.map((n) => NETWORK_NAMES[n] ?? n).slice(0, 4).join(", ")}`}
+              </p>
+            </>
+          ) : (
+            <div role="status" aria-label="Loading totals" className="flex flex-col gap-2.5 pt-1">
+              <Skeleton className="h-12 w-44" />
+              <Skeleton className="h-4 w-56" />
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={create} className="rounded-full bg-pill px-5 py-2.5 text-sm font-medium text-bg">+ New jar</button>
@@ -299,7 +315,21 @@ function Overview({
       <section className="flex flex-col gap-3">
         <h2 className="font-semibold">Your jars</h2>
         {!loaded ? (
-          <p className="text-muted">Loading…</p>
+          <ListCard>
+            {[0, 1].map((i) => (
+              <div key={i} role="status" aria-label="Loading your jars" className="flex items-center gap-4 px-4 py-3.5">
+                <Skeleton className="size-12 shrink-0 rounded-xl" />
+                <span className="flex flex-1 flex-col gap-2">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-3 w-24" />
+                </span>
+                <span className="hidden w-40 flex-col items-end gap-2 sm:flex">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-1.5 w-40 rounded-full" />
+                </span>
+              </div>
+            ))}
+          </ListCard>
         ) : jars.length === 0 ? (
           <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-line p-6">
             <p className="font-medium">No jars yet</p>
@@ -361,6 +391,20 @@ function Overview({
         </section>
       )}
     </>
+  );
+}
+
+/** Stands in for a jar's page in the studio until the jars arrive. */
+function DetailSkeleton() {
+  return (
+    <div role="status" aria-label="Loading the jar" className="flex flex-col gap-6">
+      <Skeleton className="-mx-4 -mt-4 aspect-video w-[calc(100%+2rem)] rounded-none rounded-t-[28px] sm:-mx-8 sm:-mt-8 sm:w-[calc(100%+4rem)]" />
+      <Skeleton className="h-8 w-64" />
+      <Skeleton className="h-4 w-80 max-w-full" />
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+      </div>
+    </div>
   );
 }
 
