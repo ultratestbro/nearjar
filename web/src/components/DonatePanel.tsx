@@ -81,7 +81,6 @@ export function DonatePanel(props: {
   const firstAmount = presets.includes(10) ? 10 : presets[Math.min(1, presets.length - 1)]!;
   const [step, setStep] = useState<"form" | "review">("form");
   const [usd, setUsd] = useState(String(firstAmount));
-  const [custom, setCustom] = useState(false);
   const [chain, setChain] = useState(chains.find((c) => c.chain === "eip155:8453")?.chain ?? chains[0]?.chain ?? "");
   const tokens = props.sources.filter((s) => s.chain === chain);
   const [symbol, setSymbol] = useState("USDC");
@@ -410,22 +409,20 @@ export function DonatePanel(props: {
       </div>
 
       <div className="flex flex-col gap-3">
+        <label className="flex items-center rounded-2xl border border-line bg-panel px-4 focus-within:border-accent" htmlFor="usd">
+          <span className="text-3xl text-muted">$</span>
+          <input id="usd" inputMode="decimal" value={usd} placeholder="0" onChange={(e) => setUsd(e.target.value.replace(/[^\d.]/g, ""))} aria-label="Amount in US dollars"
+            className="w-full bg-transparent px-2 py-3 text-3xl font-semibold outline-none" />
+          <span className="text-sm text-muted">USD</span>
+        </label>
+        {/* quick amounts: a tap fills the field above */}
         <div className="flex flex-wrap gap-2">
           {presets.map((p) => (
-            <AmountPill key={p} on={!custom && usd === String(p)} onClick={() => { setCustom(false); setUsd(String(p)); }}>
+            <AmountPill key={p} on={Number(usd) === p} onClick={() => setUsd(String(p))}>
               ${p}
             </AmountPill>
           ))}
-          <AmountPill on={custom} onClick={() => setCustom(true)}>Other</AmountPill>
         </div>
-        {custom && (
-          <label className="flex items-center rounded-2xl border border-line bg-panel px-4 focus-within:border-accent" htmlFor="usd">
-            <span className="text-3xl text-muted">$</span>
-            <input id="usd" autoFocus inputMode="decimal" value={usd} onChange={(e) => setUsd(e.target.value.replace(/[^\d.]/g, ""))} aria-label="Amount in US dollars"
-              className="w-full bg-transparent px-2 py-3 text-3xl font-semibold outline-none" />
-            <span className="text-sm text-muted">USD</span>
-          </label>
-        )}
       </div>
 
       <ListCard>
