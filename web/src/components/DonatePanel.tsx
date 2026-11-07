@@ -70,6 +70,8 @@ export function DonatePanel(props: {
   thanks: string;
   sharePath: string;
   confidential: boolean;
+  /** Under the Donate button, e.g. who already chipped in. */
+  footer?: ReactNode;
 }) {
   const chains = useMemo(() => {
     const seen = new Map<string, { chain: string; label: string; icon: string }>();
@@ -282,7 +284,9 @@ export function DonatePanel(props: {
     setMessage("");
   }
 
-  const card = "flex flex-col gap-5 rounded-3xl border border-line bg-surface p-4 sm:p-6";
+  // phones: edge to edge, only hairlines above and below; desktop: a floating card
+  const card =
+    "flex flex-col gap-4 border-y border-line bg-panel px-4 py-5 lg:gap-5 lg:rounded-[28px] lg:border lg:p-6 lg:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)]";
 
   if (donation) {
     return (
@@ -320,7 +324,7 @@ export function DonatePanel(props: {
           </div>
         </div>
 
-        <div className="flex items-start gap-1 rounded-2xl bg-panel p-3 text-xs">
+        <div className="flex items-start gap-1 rounded-2xl bg-bg p-3 text-xs">
           <RouteNode icon={<Icon src={token.icon} alt={token.symbol} size={28} />} title={token.symbol} sub={token.chainLabel} />
           <RouteArrow />
           <RouteNode icon={<span className="grid size-7 place-items-center rounded-full bg-text font-semibold text-bg">N</span>} title="NEAR Intents" sub="swap + route" />
@@ -393,31 +397,32 @@ export function DonatePanel(props: {
   }
 
   const raised = props.raisedUsd + given;
+  const pct = props.goalUsd ? (raised / props.goalUsd) * 100 : 0;
   return (
     <aside className={card}>
-      <div className="flex flex-col gap-3">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <p className="text-sm text-muted">Raised</p>
-            <p className="text-4xl font-semibold tracking-tight">{money(raised)}</p>
-          </div>
-          {props.goalUsd && <p className="pb-1 text-sm text-muted">of {money(props.goalUsd, 0)}</p>}
+      {/* phones show the total here; desktop has it in the stat cards beside the card */}
+      <div className="flex flex-col gap-2 lg:hidden">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-3xl font-bold tracking-tight">{money(raised)}</span>
+          <span className="text-sm text-muted">
+            {props.goalUsd
+              ? `of ${money(props.goalUsd, 0)} · ${pct > 0 && pct < 1 ? "<1" : Math.round(pct)}%`
+              : `raised · ${props.supporters} supporter${props.supporters === 1 ? "" : "s"}`}
+          </span>
         </div>
-        {props.goalUsd && <Progress pct={(raised / props.goalUsd) * 100} />}
-        <p className="text-xs text-muted">
-          {props.supporters} supporter{props.supporters === 1 ? "" : "s"} · no platform fee
-        </p>
+        {props.goalUsd && <Progress pct={pct} />}
       </div>
+      <h2 className="hidden text-lg font-semibold lg:block">Support this jar</h2>
 
-      <div className="flex flex-col gap-3">
-        <label className="flex items-center rounded-2xl border border-line bg-panel px-4 focus-within:border-accent" htmlFor="usd">
-          <span className="text-3xl text-muted">$</span>
+      <div className="flex flex-col gap-3.5 lg:gap-3">
+        <label className="mt-1.5 flex items-center gap-2 rounded-2xl bg-bg px-4 focus-within:ring-1 focus-within:ring-accent lg:mt-0 lg:rounded-[18px] lg:border lg:border-line lg:focus-within:border-accent lg:focus-within:ring-0" htmlFor="usd">
+          <span className="text-3xl text-muted lg:text-[28px]">$</span>
           <input id="usd" inputMode="decimal" value={usd} placeholder="0" onChange={(e) => setUsd(e.target.value.replace(/[^\d.]/g, ""))} aria-label="Amount in US dollars"
-            className="w-full bg-transparent px-2 py-3 text-3xl font-semibold outline-none" />
+            className="w-full min-w-0 bg-transparent py-3.5 text-3xl font-semibold outline-none lg:py-3 lg:text-[28px]" />
           <span className="text-sm text-muted">USD</span>
         </label>
         {/* quick amounts: a tap fills the field above */}
-        <div className="flex flex-wrap gap-2">
+        <div className={`grid gap-2 ${GRID[presets.length] ?? "grid-cols-4"}`}>
           {presets.map((p) => (
             <AmountPill key={p} on={Number(usd) === p} onClick={() => setUsd(String(p))}>
               ${p}
@@ -426,21 +431,34 @@ export function DonatePanel(props: {
         </div>
       </div>
 
-      <ListCard>
-        <ListRow
-          onClick={() => setModal("pay")}
-          icon={token ? <Icon src={token.icon} alt={token.symbol} size={32} /> : undefined}
-          label="Pay with"
-          hint={token ? `${token.symbol} on ${token.chainLabel}${tokenHeld ? ` · ${amountText(tokenHeld.amount, token.decimals)} available` : ""}` : "Pick a network"}
-          value={<span className="text-muted">Change</span>}
-        />
-        <ListRow
-          onClick={() => setModal("note")}
-          icon={<span className="grid size-8 place-items-center rounded-full bg-surface-2 text-muted" aria-hidden>✎</span>}
-          label={name || message ? name || "Anonymous" : "Add a message"}
-          hint={message || (name ? "No message" : "Optional: your name and a few words")}
-        />
-      </ListCard>
+      <div className="flex flex-col gap-1">
+        <button type="button" onClick={() => setModal("pay")}
+          className="flex items-center gap-3 rounded-2xl bg-surface px-3.5 py-3 text-left transition hover:bg-surface-2 lg:rounded-[18px] lg:border lg:border-line">
+          {token ? <Icon src={token.icon} alt={token.symbol} size={34} /> : null}
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate font-medium">
+              <span className="lg:hidden">{token ? `${token.symbol} on ${token.chainLabel}` : "Pay with"}</span>
+              <span className="hidden lg:inline">Pay with</span>
+            </span>
+            <span className="truncate text-[13px] text-muted">
+              <span className="lg:hidden">Pay with{tokenHeld && token ? ` · ${amountText(tokenHeld.amount, token.decimals)} available` : ""}</span>
+              <span className="hidden lg:inline">
+                {token ? `${token.symbol} on ${token.chainLabel}${tokenHeld ? ` · ${amountText(tokenHeld.amount, token.decimals)} available` : ""}` : "Pick a network"}
+              </span>
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-1 text-sm text-muted">
+            Change <Chevron />
+          </span>
+        </button>
+        <button type="button" onClick={() => setModal("note")} className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-left text-sm transition hover:bg-surface">
+          <span className="grid size-[34px] shrink-0 place-items-center text-muted" aria-hidden>✎</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate">{name || message ? name || "Anonymous" : "Add a message"}</span>
+            <span className="truncate text-xs text-muted">{message || (name ? "No message" : "Optional: your name and a few words")}</span>
+          </span>
+        </button>
+      </div>
 
       <div className="min-h-5 text-sm">
         {amountError ? (
@@ -459,10 +477,11 @@ export function DonatePanel(props: {
         ) : null}
       </div>
 
-      <button type="button" onClick={() => setStep("review")} disabled={!props.open || !quote || !quotable || loading} className={primary}>
-        {props.open ? `Continue · ${money(usdCents / 100)}` : "Jar is closed"}
+      <button type="button" onClick={() => setStep("review")} disabled={!props.open || !quote || !quotable || loading} className={`${primary} h-[54px] text-[17px] lg:h-auto lg:text-base`}>
+        {props.open ? `Donate ${money(usdCents / 100)}` : "Jar is closed"}
       </button>
       <p className="-mt-2 text-center text-xs text-muted">Live quotes from NEAR Intents. Nothing is charged until you confirm.</p>
+      {props.footer}
 
       {modal === "pay" && (
         <PayWithSheet
@@ -508,13 +527,16 @@ export function DonatePanel(props: {
   );
 }
 
+// six quick amounts read better as two rows of three than as 4 + 2
+const GRID: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-4", 5: "grid-cols-3", 6: "grid-cols-3" };
+
 const primary =
   "flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink transition hover:brightness-105 disabled:opacity-50";
 
 function AmountPill({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" onClick={onClick} aria-pressed={on}
-      className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${on ? "bg-pill text-bg" : "bg-surface-2 text-text hover:bg-line"}`}>
+      className={`h-12 rounded-[14px] text-base font-medium transition lg:h-auto lg:rounded-full lg:py-2.5 lg:text-sm ${on ? "bg-pill text-bg" : "bg-surface-2 text-text hover:bg-line"}`}>
       {children}
     </button>
   );

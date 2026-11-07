@@ -1,32 +1,45 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { shortAccount } from "./ui";
+import { money, shortAccount } from "./ui";
 
-/** Phones only: a "Donate" bar pinned to the bottom until the donate form scrolls into view. */
-export function DonateCta() {
+/**
+ * Phones only: the total and a "Donate" button pinned to the bottom whenever the donate form is
+ * off screen (it sits near the top, so this is what people see while reading supporters).
+ */
+export function DonateCta({ raisedUsd, goalUsd }: { raisedUsd: number; goalUsd: number | null }) {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     const form = document.getElementById("donate");
     if (!form) return;
-    const io = new IntersectionObserver(([e]) => setHidden(!!e && (e.isIntersecting || e.boundingClientRect.top < 0)), { threshold: 0.15 });
+    const io = new IntersectionObserver(([e]) => setHidden(!!e && e.isIntersecting), { threshold: 0.15 });
     io.observe(form);
     return () => io.disconnect();
   }, []);
 
   return (
     <div
-      className={`fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/90 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur transition-transform lg:hidden ${hidden ? "translate-y-full" : ""}`}
+      className={`fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-line bg-bg/95 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur transition-transform lg:hidden ${hidden ? "translate-y-full" : ""}`}
       aria-hidden={hidden}
     >
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold">
+          {money(raisedUsd)} {goalUsd ? <span className="font-normal text-muted">of {money(goalUsd, 0)}</span> : <span className="font-normal text-muted">raised</span>}
+        </p>
+        {goalUsd && (
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-2">
+            <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, (raisedUsd / goalUsd) * 100)}%` }} />
+          </div>
+        )}
+      </div>
       <button
         type="button"
         tabIndex={hidden ? -1 : 0}
         onClick={() => document.getElementById("donate")?.scrollIntoView({ behavior: "smooth" })}
-        className="w-full rounded-full bg-accent px-5 py-3.5 font-medium text-accent-ink"
+        className="h-12 shrink-0 rounded-full bg-accent px-[26px] font-semibold text-accent-ink"
       >
-        Donate from any chain
+        Donate
       </button>
     </div>
   );

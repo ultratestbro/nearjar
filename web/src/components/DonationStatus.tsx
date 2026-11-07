@@ -132,7 +132,7 @@ export function DonationStatus({
       </div>
 
       {/* the route at a glance: your token → NEAR Intents → the creator's near.com balance */}
-      <div className="flex items-start rounded-2xl bg-panel px-3 py-4 text-xs">
+      <div className="flex items-start rounded-2xl bg-bg px-3 py-4 text-xs">
         <Node
           icon={
             <span className="relative">
