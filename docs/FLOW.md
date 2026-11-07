@@ -43,7 +43,7 @@ Recipient rule (Any Wallet Kit near-intents ≥0.3.0, both modes, `destChain: ne
 3. Pay one of three ways:
    - **a) Wallet** — EVM / Solana / TON / Tron / NEAR / BTC via the Any Wallet Kit SDK, one signature.
    - **b) Manual** — one-time 1Click deposit address + QR on the chosen chain; donor gives a refund address.
-   - **c) From near.com** — donor connects their near.com wallet, signs a gasless transfer from their `intents.near` balance carrying the jar id; the relayer submits it.
+   - **c) From near.com** — planned, not built yet: the donor signs a gasless transfer from their `intents.near` balance carrying the jar id; the relayer submits it.
 4. Optional name + message (≤280 chars, text only, shown only after delivery, creator can hide it).
 5. Status: waiting for deposit → in progress → delivered (source tx + intents.near tx links) or refunded.
 6. Receipt + "share on X".
@@ -51,7 +51,7 @@ Recipient rule (Any Wallet Kit near-intents ≥0.3.0, both modes, `destChain: ne
 ## Attribution
 
 - a, b: each donation gets its own 1Click quote and deposit address → stored as `deposit → jar`.
-- c: the signed transfer carries the jar id.
+- c (planned): the signed transfer would carry the jar id.
 
 ## Storage
 
@@ -62,7 +62,7 @@ Recipient rule (Any Wallet Kit near-intents ≥0.3.0, both modes, `destChain: ne
 | In-flight statuses | Turso |
 | Names and messages | Turso (hideable) |
 
-The contract cannot verify a payment on another chain, so receipts for a/b are relayer-attested and checkable via the tx hash. Method c settles inside `intents.near`.
+The contract cannot verify a payment on another chain, so receipts are relayer-attested and checkable via the delivery tx hash.
 
 ## Money
 
@@ -72,16 +72,14 @@ The contract cannot verify a payment on another chain, so receipts for a/b are r
 
 ## Architecture
 
-- Next.js (App Router) on Vercel, Turso + Drizzle.
+- Next.js (App Router) on Vercel, Turso (libSQL).
 - Contract: Rust, near-sdk, mainnet, account `nearjar.near`.
 - Relayer: `relayer.nearjar.near` with a function-call key limited to the contract (pays gas only). The full-access keys stay with the owner.
-- Status tracking: polled while a page is open + Vercel cron backstop; the cron also writes receipts.
+- Status tracking: polled while a donation status or jar page is open (`/api/donations/[id]`, `/api/jars/[id]/sync`); the same polling writes the receipts.
 - UI: English, near.com-like style (dark, green accent), no near.com logo, "concept, not official" note.
-- Domain: `*.vercel.app` until the owner buys one.
+- Domain: https://nearjar.xyz.
 
 ## Hackathon
 
-- Track: Real-World Money (main), Social Money if DAO-treasury jars fit in time.
-- Repo private until ~Nov 11–12, secret scan, then public before Nov 14 23:59 UTC.
-- Dry-run mode so judges can walk the whole flow without funds.
-- Second project (if time): NEAR staking from any chain on the Any Wallet Kit SDK. The READMEs must name each other.
+- Tracks: Real-World Money, Open Innovation.
+- Judges can walk the flow without funds: live dry quotes on https://nearjar.xyz and `POST /api/quote` (see the README).

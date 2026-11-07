@@ -29,10 +29,21 @@ ERC-191 signatures are 65 bytes `r‖s‖v` with `v` = 0/1 (MetaMask returns 27/
 
 ```sh
 cargo test                                   # unit tests (signatures are real ed25519 / secp256k1)
-cargo near build non-reproducible-wasm --no-abi   # sets --cfg=near (host-function crypto), runs wasm-opt → target/near/nearjar.wasm (~444 KB)
+cargo near build non-reproducible-wasm --no-abi   # sets --cfg=near (host-function crypto), runs wasm-opt → target/near/nearjar.wasm (~457 KB)
 ```
 
 Rust is pinned to 1.97.1 (`rust-toolchain.toml`), the same as near/intents.
+
+## Mainnet
+
+Live since 2026-11-07 (wasm `7Xcyk6ciTSiwmqFhAFUGHudgwUtMcCjUBbpaJXgoDJqi`, the same build as testnet):
+
+| Account | Role |
+|---|---|
+| [`nearjar.near`](https://nearblocks.io/address/nearjar.near) | NearJar (owner = itself), `intents_id = intents.near`, receive assets USDC, USDT, wNEAR, BTC, ETH |
+| [`relayer.nearjar.near`](https://nearblocks.io/address/relayer.nearjar.near) | relayer; the server holds only a function-call key limited to `submit` and `record_donation` on `nearjar.near` |
+
+Deploy + `new(...)`: [`2fhHk9zS…`](https://nearblocks.io/txns/2fhHk9zSrjfxufNo13WtEmKLbXyHi34U3ECZfQni4cQ3) · `add_relayer`: [`ALDC7icy…`](https://nearblocks.io/txns/ALDC7icyngJZ6TB4PzS2WioAqxTEXabuPCdHkXChwkzq).
 
 ## Testnet
 
