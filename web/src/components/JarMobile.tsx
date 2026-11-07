@@ -8,7 +8,8 @@ import { money, shortAccount } from "./ui";
  * off screen (it sits near the top, so this is what people see while reading supporters).
  */
 export function DonateCta({ raisedUsd, goalUsd }: { raisedUsd: number; goalUsd: number | null }) {
-  const [hidden, setHidden] = useState(false);
+  // starts hidden: the form is in view on load, and a bar that renders then slides away flickers
+  const [hidden, setHidden] = useState(true);
 
   useEffect(() => {
     const form = document.getElementById("donate");

@@ -441,7 +441,7 @@ export function DonatePanel(props: {
               <span className="hidden lg:inline">Pay with</span>
             </span>
             <span className="truncate text-[13px] text-muted">
-              <span className="lg:hidden">Pay with{tokenHeld && token ? ` · ${amountText(tokenHeld.amount, token.decimals)} available` : ""}</span>
+              <span className="lg:hidden">{token ? `Pay with${tokenHeld ? ` · ${amountText(tokenHeld.amount, token.decimals)} available` : ""}` : "Pick a network"}</span>
               <span className="hidden lg:inline">
                 {token ? `${token.symbol} on ${token.chainLabel}${tokenHeld ? ` · ${amountText(tokenHeld.amount, token.decimals)} available` : ""}` : "Pick a network"}
               </span>

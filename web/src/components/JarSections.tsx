@@ -120,7 +120,7 @@ export function JarAbout({ story, links, milestones, raisedUsd, ...share }: { st
       )}
       <div className="hidden flex-wrap gap-2 lg:flex">
         {LINK_KINDS.filter((k) => links[k]).map((k) => (
-          <a key={k} href={links[k]} target="_blank" rel="noopener nofollow ugc" aria-label={LINK_LABEL[k]} className={pill}>
+          <a key={k} href={links[k]} target="_blank" rel="noopener nofollow ugc" className={pill}>
             <LinkIcon kind={k} size={15} />
             {linkText(k, links[k]!)}
           </a>
@@ -151,7 +151,8 @@ export function JarAbout({ story, links, milestones, raisedUsd, ...share }: { st
 function SupporterAvatar({ row }: { row: SupporterRow }) {
   return (
     <span className="relative grid size-[38px] shrink-0 place-items-center rounded-full bg-surface-2 font-semibold sm:size-10">
-      {(row.name ?? "Anonymous").slice(0, 1)}
+      {/* by code point, so a name that starts with an emoji keeps it whole */}
+      {Array.from(row.name ?? "Anonymous")[0]}
       <span className="absolute -bottom-1 -right-1 rounded-full ring-2 ring-panel">
         <Icon src={row.chainIcon} alt={row.chainLabel} size={16} />
       </span>

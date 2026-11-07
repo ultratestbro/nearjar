@@ -91,8 +91,8 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
 
         <section className="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-1 lg:gap-6 lg:pt-2">
           <div className="hidden flex-col gap-6 lg:flex">
-            {/* 2 × 2 while the column is narrow, one row once there is room */}
-            <div className="grid grid-cols-2 gap-2.5 xl:flex">
+            {/* 2 × 2 (or 3 across) while the column is narrow, one row once there is room */}
+            <div className={`grid gap-2.5 xl:flex ${networks > 0 ? "grid-cols-2" : "grid-cols-3"}`}>
               <Stat value={money(raised, 0)} label={goal ? `raised of ${money(goal, 0)}` : "raised"} />
               <Stat value={String(count)} label={count === 1 ? "supporter" : "supporters"} />
               {networks > 0 && <Stat value={networksText} label={networks === 1 ? "network used" : "networks used"} />}
