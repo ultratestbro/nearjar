@@ -221,7 +221,7 @@ export function JarEditor({
             <div className="flex flex-col gap-6">
               <Field label="Cover" hint="JPG, PNG or WebP · you frame it after picking">
                 <ImagePicker kind="cover" value={d.cover} onChange={(h) => set("cover", h)} page={d} title={d.title} legacyImage={jar?.image_url}
-                  preview={<JarCover page={d} legacyImage={jar?.image_url} className="aspect-[8/3] w-full rounded-2xl" />} />
+                  preview={<JarCover page={d} legacyImage={jar?.image_url} className="aspect-video w-full rounded-2xl" />} />
                 {!d.cover && (
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted">No photo? Pick a color:</span>
@@ -604,7 +604,7 @@ function PagePreview({ d, jar, goalUsd, receive }: { d: Draft; jar: StudioJar | 
   const milestones = d.milestones.filter((m) => m.label.trim() && Number(m.usd) >= 1).sort((a, b) => Number(a.usd) - Number(b.usd));
   return (
     <div className="overflow-hidden rounded-3xl border border-line bg-bg">
-      <JarCover page={d} legacyImage={jar?.image_url} className="aspect-[8/3] w-full" mark={false} />
+      <JarCover page={d} legacyImage={jar?.image_url} className="aspect-video w-full" mark={false} />
       <div className="flex flex-col gap-3 p-4">
         <JarAvatar page={d} title={d.title} size={48} className="relative -mt-10 border-4 border-bg" />
         <div>

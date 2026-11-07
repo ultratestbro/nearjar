@@ -41,12 +41,12 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
   return (
     <Panel className="overflow-hidden pb-20 lg:pb-0">
       {/* Phones: jar, then the donate card, then the tabs. Desktop: the card is a sticky right column
-          and the 8:3 cover sits in the left one, so it stays the frame the owner picked without
+          and the 16:9 cover sits in the left one, so it stays the frame the owner picked without
           pushing the card below the fold. */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:grid-rows-[auto_1fr] lg:gap-10 lg:p-8">
         <section className="flex flex-col gap-4 lg:col-start-1">
           <JarCover page={page} legacyImage={jar.image_url}
-            className="-mx-4 -mt-4 aspect-[8/3] w-[calc(100%+2rem)] max-w-none sm:-mx-6 sm:-mt-6 sm:w-[calc(100%+3rem)] lg:m-0 lg:w-full lg:rounded-2xl" />
+            className="-mx-4 -mt-4 aspect-video w-[calc(100%+2rem)] max-w-none sm:-mx-6 sm:-mt-6 sm:w-[calc(100%+3rem)] lg:m-0 lg:w-full lg:rounded-2xl" />
           <div className="-mt-14 flex flex-col gap-4 sm:-mt-16">
             <JarAvatar page={page} title={jar.title} size={80} className="relative border-4 border-panel lg:ml-6" />
             <div className="flex flex-col gap-2">

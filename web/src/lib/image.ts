@@ -1,7 +1,7 @@
-// Covers and avatars are cropped and re-encoded in the browser before upload: a cover to 8:3 at up
+// Covers and avatars are cropped and re-encoded in the browser before upload: a cover to 16:9 at up
 // to 1600 px wide, an avatar to a 400 px square. Re-encoding also drops EXIF (location, camera).
 
-export const SHAPE = { cover: { w: 1600, ratio: 8 / 3 }, avatar: { w: 400, ratio: 1 } } as const;
+export const SHAPE = { cover: { w: 1600, ratio: 16 / 9 }, avatar: { w: 400, ratio: 1 } } as const;
 const MAX_BYTES = 680_000;
 
 export type ImageKind = keyof typeof SHAPE;
@@ -93,7 +93,7 @@ export async function renderCrop(s: Source, kind: ImageKind, crop: Crop, fill: s
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(s.bmp, (f.w / 2 - f.cx) * k, (f.h / 2 - f.cy) * k, s.w * k, s.h * k);
 
-  for (const q of [0.85, 0.72, 0.6]) {
+  for (const q of [0.85, 0.72, 0.6, 0.5]) {
     let blob = await toBlob(canvas, "image/webp", q);
     // Safari before 17 can't encode WebP and hands back a PNG
     if (!blob || blob.type !== "image/webp") blob = await toBlob(canvas, "image/jpeg", q);

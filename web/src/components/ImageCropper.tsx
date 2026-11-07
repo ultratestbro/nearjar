@@ -152,7 +152,7 @@ export function ImageCropper({
           onPointerUp={up}
           onPointerCancel={up}
           onKeyDown={key}
-          className={`relative cursor-grab touch-none overflow-hidden rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-accent active:cursor-grabbing ${kind === "cover" ? "aspect-[8/3] w-full" : "mx-auto aspect-square w-full max-w-[300px]"}`}
+          className={`relative cursor-grab touch-none overflow-hidden rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-accent active:cursor-grabbing ${kind === "cover" ? "aspect-video w-full" : "mx-auto aspect-square w-full max-w-[300px]"}`}
         >
           {view}
           {kind === "avatar" && <div className="pointer-events-none absolute inset-0 rounded-full shadow-[0_0_0_999px_rgba(0,0,0,0.55)]" />}
@@ -248,7 +248,7 @@ function Header(p: {
   return (
     <div className="flex flex-col gap-1.5" style={{ width: p.width }}>
       <div className="overflow-hidden rounded-lg border border-line bg-panel">
-        <div className="aspect-[8/3] w-full overflow-hidden [&>*]:size-full">{p.cover}</div>
+        <div className="aspect-video w-full overflow-hidden [&>*]:size-full">{p.cover}</div>
         <div style={{ padding: `0 ${p.padPx * k}px ${Math.max(6, p.padPx * k)}px` }}>
           <div
             className="relative overflow-hidden rounded-full border-panel [&>*]:size-full"
