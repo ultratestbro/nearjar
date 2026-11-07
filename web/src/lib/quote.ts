@@ -2,6 +2,7 @@ import "server-only";
 
 import { nearIntentsProvider } from "@anywalletkit/protocol-swap2-near-intents";
 import { sourceAsset } from "./assets";
+import { daoTreasuryRefusal } from "./dao";
 import type { Jar } from "./jars";
 import { parseNearComAccount } from "./nearcom";
 import { tokenPrices, usdToUnits } from "./prices";
@@ -13,12 +14,38 @@ import { tokenPrices, usdToUnits } from "./prices";
  */
 export const CONFIDENTIAL_DELIVERY = !!process.env.ONE_CLICK_JWT;
 
-/** Any Wallet Kit's NEAR Intents provider, crediting the jar owner's near.com account. */
-export const toNearCom = nearIntentsProvider({
-  recipientType: CONFIDENTIAL_DELIVERY ? "CONFIDENTIAL_INTENTS" : "INTENTS",
+const oneClick = {
   ...(process.env.ONE_CLICK_API_URL ? { apiUrl: process.env.ONE_CLICK_API_URL } : {}),
   ...(process.env.ONE_CLICK_JWT ? { jwt: process.env.ONE_CLICK_JWT } : {}),
-});
+};
+
+/** Any Wallet Kit's NEAR Intents provider, crediting the jar owner's near.com account. */
+export const toNearCom = nearIntentsProvider({ recipientType: CONFIDENTIAL_DELIVERY ? "CONFIDENTIAL_INTENTS" : "INTENTS", ...oneClick });
+
+/**
+ * DAO jars: the treasury's public intents.near balance, which Trezu shows and spends by proposal.
+ * A confidential credit would sit where a public treasury can't see it.
+ */
+export const toDaoTreasury = nearIntentsProvider({ recipientType: "INTENTS", ...oneClick });
+
+export interface Payout {
+  account: string;
+  recipientType: "INTENTS" | "CONFIDENTIAL_INTENTS";
+  /** A Sputnik DAO treasury rather than the owner's near.com balance. */
+  dao: boolean;
+}
+
+/**
+ * Where a jar's donations are credited. Pass only a jar read from the contract (getJar): the DAO
+ * payout is signed and stored there, so nothing off chain can redirect a jar.
+ */
+export function payoutOf(jar: Pick<Jar, "owner" | "payout">): Payout {
+  return jar.payout
+    ? { account: jar.payout, recipientType: "INTENTS", dao: true }
+    : { account: jar.owner, recipientType: CONFIDENTIAL_DELIVERY ? "CONFIDENTIAL_INTENTS" : "INTENTS", dao: false };
+}
+
+export const payoutAccount = (jar: Pick<Jar, "owner" | "payout">) => payoutOf(jar).account;
 
 export const MIN_DONATION_CENTS = 100;
 export const MAX_DONATION_CENTS = 1_000_000;
@@ -54,9 +81,18 @@ export async function quoteDonation(input: {
   }
   const src = sourceAsset(input.sourceChain, input.sourceSymbol);
   if (!src) return { ok: false, error: "Unsupported token." };
-  // INTENTS / CONFIDENTIAL_INTENTS credit intents.near: the recipient must be a canonical account id
-  const owner = parseNearComAccount(jar.owner);
-  if (!owner.ok) return { ok: false, error: owner.error };
+  const payout = payoutOf(jar);
+  let recipient = payout.account;
+  if (payout.dao) {
+    // the contract can't see whether the DAO exists or holds an intents key: every quote checks
+    const refusal = await daoTreasuryRefusal(payout.account);
+    if (refusal) return { ok: false, error: refusal };
+  } else {
+    // INTENTS / CONFIDENTIAL_INTENTS credit intents.near: the recipient must be a canonical account id
+    const owner = parseNearComAccount(payout.account);
+    if (!owner.ok) return { ok: false, error: owner.error };
+    recipient = owner.id;
+  }
   if (!input.dry && !input.refundAddress) return { ok: false, error: "A refund address is required." };
 
   const price = (await tokenPrices()).get(src.assetId)?.price;
@@ -64,12 +100,12 @@ export async function quoteDonation(input: {
   const amountIn = usdToUnits(usdCents, price, src.decimals);
 
   let refusal = "";
-  const q = await toNearCom.getQuote({
+  const q = await (payout.dao ? toDaoTreasury : toNearCom).getQuote({
     sourceChain: src.chain,
     sourceToken: src.symbol,
     destChain: "near:mainnet",
     destToken: jar.receive_asset,
-    destAddress: owner.id,
+    destAddress: recipient,
     amountIn: amountIn.toString(),
     ...(input.refundAddress ? { refundAddress: input.refundAddress } : {}),
     dry: input.dry,

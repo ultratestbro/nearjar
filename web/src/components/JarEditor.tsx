@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ReceiveAsset } from "@/lib/assets";
+import { daoLabel, parseDaoId, soloText, spendText, type Governance } from "@/lib/daoPolicy";
 import { centered, closeSource, loadSource, uploadImage, type ImageKind } from "@/lib/image";
 import {
   COVER_GRADIENTS,
@@ -16,8 +17,10 @@ import {
   type JarPageData,
   type LinkKind,
 } from "@/lib/pageData";
+import { payoutInMessage } from "@/lib/signedPayload";
 import type { ConnectedWallet } from "@/lib/wallet";
 import { PlusIcon } from "./ButtonIcons";
+import { DaoMark } from "./Dao";
 import { ImageCropper, type Edit } from "./ImageCropper";
 import { JarAvatar, JarCover } from "./JarArt";
 import { LinkIcon } from "./LinkIcon";
@@ -37,7 +40,32 @@ export interface StudioJar {
   status: "Open" | "Closed";
   raised_usd_cents: string;
   donations_count: string;
+  /** Sputnik DAO treasury the jar pays instead of its owner; fixed when the jar is created. */
+  payout: string | null;
+  /** The DAO endorsed this revision; the next edit clears it. */
+  endorsed: boolean;
+  revision: string;
+  /** Current short link, from the contract. */
+  slug: string | null;
 }
+
+/** What /api/dao answers for the DAO typed in the editor. */
+type DaoInfo =
+  | {
+      ok: true;
+      dao: string;
+      exists: boolean;
+      members: number;
+      roles: string[];
+      accountRoles: string[];
+      isMember: boolean;
+      canSpendIntents: boolean;
+      governance: Governance | null;
+      intentsKeys: number;
+      problem: string | null;
+      trezuUrl: string;
+    }
+  | { ok: false; error: string };
 
 type Section = "page" | "goal" | "payout" | "after";
 
@@ -56,6 +84,9 @@ interface Draft {
   thanks: string;
   links: Record<LinkKind, string>;
   slug: string;
+  /** Where donations go: the signer's near.com balance or a DAO treasury (new jars only). */
+  payoutKind: "nearcom" | "dao";
+  dao: string;
 }
 
 const LINK_FIELDS: { kind: LinkKind; label: string; placeholder: string }[] = [
@@ -81,7 +112,9 @@ function draftOf(jar: StudioJar | null, page: JarPageData | null, assets: readon
     presets: p.presets.length ? p.presets : DEFAULT_PRESETS,
     thanks: p.thanks,
     links: { website: p.links.website ?? "", x: p.links.x ?? "", telegram: p.links.telegram ?? "", youtube: p.links.youtube ?? "" },
-    slug: p.slug ?? "",
+    slug: jar?.slug ?? p.slug ?? "",
+    payoutKind: jar?.payout ? "dao" : "nearcom",
+    dao: jar?.payout ?? "",
   };
 }
 
@@ -117,7 +150,7 @@ export function JarEditor({
   wallet: ConnectedWallet;
   assets: readonly AssetWithIcon[];
   onClose: () => void;
-  onPublished: (r: { jarId: string; isNew: boolean; slugKept: boolean; slug: string | null; pageError?: string }) => void;
+  onPublished: (r: { jarId: string; isNew: boolean; slug: string | null; pageError?: string }) => void;
 }) {
   const initial = useMemo(() => draftOf(jar, page, assets), [jar, page, assets]);
   const [d, setD] = useState<Draft>(initial);
@@ -157,6 +190,50 @@ export function JarEditor({
     };
   }, [slug, jar]);
 
+  // the DAO typed in, checked against the signer's account; its state is derived like the slug's
+  const wantDao = isNew && d.payoutKind === "dao";
+  const daoInput = d.dao.trim();
+  const daoId = wantDao ? parseDaoId(daoInput) : null;
+  const daoKey = `${wallet.account}|${daoId}`;
+  const [daoChecked, setDaoChecked] = useState<{ key: string; info: DaoInfo } | null>(null);
+  const daoInfo: DaoInfo | null = !wantDao || !daoInput
+    ? null
+    : !daoId
+      ? { ok: false, error: "That isn't a Sputnik DAO: use its name, name.sputnik-dao.near or its trezu.app link." }
+      : daoChecked?.key === daoKey
+        ? daoChecked.info
+        : null;
+  const daoState: "idle" | "checking" | "ok" | "bad" = !wantDao || !daoInput ? "idle" : !daoInfo ? "checking" : daoInfo.ok && !daoInfo.problem ? "ok" : "bad";
+
+  useEffect(() => {
+    if (!daoId) return;
+    const ctrl = new AbortController();
+    const key = `${wallet.account}|${daoId}`;
+    const t = setTimeout(() => {
+      fetch(`/api/dao?id=${encodeURIComponent(daoId)}&account=${encodeURIComponent(wallet.account)}`, { signal: ctrl.signal })
+        .then((r) => r.json() as Promise<DaoInfo>)
+        .then((info) => setDaoChecked({ key, info }))
+        .catch(() => !ctrl.signal.aborted && setDaoChecked({ key, info: { ok: false, error: "Could not check the DAO. Try again." } }));
+    }, 400);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [daoId, wallet.account]);
+
+  // the treasury the jar pays: the checked DAO for a new jar, the stored one for an existing jar
+  const payout = isNew ? (daoState === "ok" && daoInfo?.ok ? daoInfo.dao : null) : (jar?.payout ?? null);
+  const previewDao = isNew ? daoId : payout;
+  const daoProblem = !wantDao
+    ? ""
+    : !daoInput
+      ? "Enter the DAO that receives the donations."
+      : daoState === "bad" && daoInfo
+        ? daoInfo.ok
+          ? (daoInfo.problem ?? "")
+          : daoInfo.error
+        : "";
+
   const receive = assets.find((a) => a.id === d.receive) ?? assets[0]!;
   const goalUsd = d.goalOn && Number(d.goal) > 0 ? Number(d.goal) : null;
   const hasCover = !!d.cover || !!jar?.image_url;
@@ -165,7 +242,7 @@ export function JarEditor({
   const warn: Record<Section, boolean> = {
     page: !hasCover || !d.story.trim(),
     goal: d.milestones.some((m) => !m.label.trim() || !(Number(m.usd) >= 1)),
-    payout: slugState === "taken" || slugState === "bad",
+    payout: slugState === "taken" || slugState === "bad" || !!daoProblem,
     after: !d.thanks.trim() || !!badLink,
   };
   const problem = !d.title.trim()
@@ -174,12 +251,14 @@ export function JarEditor({
       ? "Set a goal of at least $1, or turn the goal off."
       : warn.goal
         ? "Every milestone needs an amount and a label."
-        : slugState === "taken"
-          ? "That short link is taken."
-          : slugState === "bad"
-            ? "Short link: 3–40 letters, digits or dashes."
-            : linkProblem;
-  const canPublish = !problem && (dirty || isNew) && slugState !== "checking";
+        : daoProblem
+          ? daoProblem
+          : slugState === "taken"
+            ? "That short link is taken."
+            : slugState === "bad"
+              ? "Short link: 3–40 letters, digits or dashes."
+              : linkProblem;
+  const canPublish = !problem && (dirty || isNew) && slugState !== "checking" && daoState !== "checking";
 
   const status = isNew ? "Not published yet" : dirty ? "Unpublished changes" : "Live · no changes";
   const sections: { id: Section; label: string; dot?: boolean }[] = [
@@ -346,11 +425,50 @@ export function JarEditor({
                 </ListCard>
               </Field>
 
-              <Field label="Paid to">
-                <ListCard>
-                  <ListRow icon={<Icon src={wallet.icon} alt={wallet.name} size={32} />} label={<span className="font-mono">nearcom:{shortAccount(wallet.account)}</span>} hint="Your near.com balance · set by the wallet you signed in with" value={<span aria-label="locked">🔒</span>} />
-                </ListCard>
+              <Field label="Where donations go" hint={isNew ? "Picked once: the contract keeps it for the life of the jar." : "Set when the jar was created; it can't be changed."}>
+                {isNew ? (
+                  <ListCard>
+                    <PayoutOption on={d.payoutKind === "nearcom"} onClick={() => set("payoutKind", "nearcom")}
+                      icon={<Icon src={wallet.icon} alt={wallet.name} size={32} />} title="My near.com balance"
+                      hint={<><span className="font-mono">nearcom:{shortAccount(wallet.account)}</span> · the wallet you signed in with</>} />
+                    <PayoutOption on={d.payoutKind === "dao"} onClick={() => set("payoutKind", "dao")}
+                      icon={<DaoDisc />} title="A DAO treasury (Sputnik DAO)" hint="Members see it in Trezu and spend it by proposal" />
+                  </ListCard>
+                ) : jar?.payout ? (
+                  <>
+                    <ListCard>
+                      <ListRow icon={<DaoDisc />} label={<span className="font-mono">{jar.payout}</span>}
+                        hint={jar.endorsed ? "DAO treasury · endorsed by the DAO ✓" : "DAO treasury · not endorsed by the DAO yet"}
+                        value={<span aria-label="locked">🔒</span>} />
+                    </ListCard>
+                    {jar.endorsed && (
+                      <p className="rounded-xl bg-amber-400/10 px-3 py-2.5 text-sm text-amber-200">
+                        Publishing changes clears the DAO&apos;s endorsement until it endorses the new version.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <ListCard>
+                    <ListRow icon={<Icon src={wallet.icon} alt={wallet.name} size={32} />} label={<span className="font-mono">nearcom:{shortAccount(wallet.account)}</span>} hint="Your near.com balance · set by the wallet you signed in with" value={<span aria-label="locked">🔒</span>} />
+                  </ListCard>
+                )}
               </Field>
+
+              {wantDao && (
+                <Field label="DAO" hint="Its name (shitzu), its account (shitzu.sputnik-dao.near) or its trezu.app link.">
+                  <label className={`flex items-center gap-2 rounded-xl border bg-surface-2 px-3 focus-within:border-accent ${daoState === "bad" ? "border-danger/60" : "border-line"}`}>
+                    <input value={d.dao} maxLength={200} placeholder="your-dao.sputnik-dao.near" aria-label="DAO" spellCheck={false} autoCapitalize="none"
+                      onChange={(e) => set("dao", e.target.value)} className="w-full min-w-0 bg-transparent py-2.5 font-mono outline-none" />
+                    {daoState === "checking" && <span role="status" aria-label="Checking the DAO" className="size-4 shrink-0 animate-spin rounded-full border-2 border-line border-t-accent" />}
+                    {daoState === "ok" && <span className="shrink-0 text-sm text-accent">✓</span>}
+                  </label>
+                  {daoInfo?.ok && daoInfo.exists && <DaoCheckCard info={daoInfo} />}
+                  {daoProblem && daoInput && <p className="text-sm text-danger">{daoProblem}</p>}
+                  <p className="rounded-xl bg-amber-400/10 px-3 py-2.5 text-sm text-amber-200">
+                    This can&apos;t be changed after publishing. Donations land in the DAO&apos;s NEAR Intents balance, and only a DAO proposal moves them.
+                  </p>
+                </Field>
+              )}
 
               <Field label="Short link" hint={slugHint(slugState)}>
                 <label className={`flex items-center rounded-xl border bg-surface-2 px-3 focus-within:border-accent ${slugState === "taken" || slugState === "bad" ? "border-danger/60" : "border-line"}`}>
@@ -410,7 +528,7 @@ export function JarEditor({
 
         <aside className={`flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start ${preview ? "" : "hidden lg:flex"}`}>
           <p className="text-xs uppercase tracking-wider text-muted">Live preview</p>
-          <PagePreview d={d} jar={jar} goalUsd={goalUsd} receive={receive} />
+          <PagePreview d={d} jar={jar} goalUsd={goalUsd} receive={receive} dao={previewDao} />
           <Checklist d={d} hasCover={hasCover} go={(s) => { setSection(s); setPreview(false); }} />
           <div className="lg:hidden">
             <PublishButton disabled={!canPublish} problem={problem} onClick={() => setSigning(true)} />
@@ -424,10 +542,12 @@ export function JarEditor({
           jar={jar}
           wallet={wallet}
           receive={receive}
+          payout={payout}
           onClose={() => setSigning(false)}
           onDone={(r) => {
             setSigning(false);
-            onPublished({ ...r, isNew, slug: r.slugKept && !r.pageError ? d.slug.trim() || null : null });
+            // the link is in the contract even when saving the page failed
+            onPublished({ ...r, isNew, slug: d.slug.trim() || null });
           }}
         />
       )}
@@ -445,6 +565,64 @@ const ASSET_NOTE: Record<string, string> = {
 
 const input = "rounded-xl border border-line bg-surface-2 px-3 py-2.5 outline-none focus:border-accent";
 
+
+/** One choice of where donations go, in the same radio rows as "Receive as". */
+function PayoutOption({ on, onClick, icon, title, hint }: { on: boolean; onClick: () => void; icon: ReactNode; title: string; hint: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={on} className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-surface-2">
+      {icon}
+      <span className="min-w-0 flex-1">
+        <span className="block">{title}</span>
+        <span className="block truncate text-xs text-muted">{hint}</span>
+      </span>
+      <span className={`grid size-5 shrink-0 place-items-center rounded-full border-2 ${on ? "border-accent" : "border-line"}`}>
+        {on && <span className="size-2.5 rounded-full bg-accent" />}
+      </span>
+    </button>
+  );
+}
+
+const DaoDisc = () => (
+  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-2 text-accent">
+    <DaoMark size={18} />
+  </span>
+);
+
+/** What the live check found: the DAO, its members, the signer's roles and whether it can spend. */
+function DaoCheckCard({ info }: { info: Extract<DaoInfo, { ok: true }> }) {
+  const yes = (ok: boolean, text: string) => (
+    <li className={`flex items-center gap-2 ${ok ? "" : "text-danger"}`}>
+      <span className={`grid size-4 shrink-0 place-items-center rounded-full text-[10px] ${ok ? "bg-accent text-accent-ink" : "bg-danger text-bg"}`}>{ok ? "✓" : "!"}</span>
+      {text}
+    </li>
+  );
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-3">
+          <DaoDisc />
+          <span className="min-w-0">
+            <span className="block font-semibold">{daoLabel(info.dao)}</span>
+            <span className="block truncate font-mono text-xs text-muted">{info.dao}</span>
+          </span>
+        </span>
+        <a href={info.trezuUrl} target="_blank" rel="noreferrer" className="btn-tactile px-3 py-1.5 text-xs font-medium">View in Trezu ↗</a>
+      </div>
+      <ul className="flex flex-col gap-1.5 text-sm">
+        {yes(true, `Sputnik DAO · ${info.members} member${info.members === 1 ? "" : "s"} · roles: ${info.roles.join(", ")}`)}
+        {yes(info.isMember, info.isMember ? `You're in ${info.accountRoles.join(", ")}` : "You aren't in any of its roles")}
+        {info.isMember && yes(info.canSpendIntents, info.canSpendIntents ? "It can spend NEAR Intents funds (FunctionCall requests)" : "It can't spend NEAR Intents funds yet")}
+        {info.intentsKeys > 0 && yes(false, "A key on NEAR Intents can spend its balance without a proposal")}
+        {info.governance && info.canSpendIntents && yes(true, spendText(info.governance))}
+      </ul>
+      {info.governance && soloText(info.governance) && (
+        <p className="rounded-xl bg-amber-400/10 px-3 py-2.5 text-sm text-amber-200">
+          {soloText(info.governance)}. The jar page tells donors so, next to the treasury.
+        </p>
+      )}
+    </div>
+  );
+}
 
 function slugHint(s: "idle" | "checking" | "ok" | "taken" | "bad"): string {
   if (s === "checking") return "Checking…";
@@ -608,7 +786,7 @@ function ImagePicker({ kind, value, onChange, page, title, legacyImage, preview,
   );
 }
 
-function PagePreview({ d, jar, goalUsd, receive }: { d: Draft; jar: StudioJar | null; goalUsd: number | null; receive: AssetWithIcon }) {
+function PagePreview({ d, jar, goalUsd, receive, dao }: { d: Draft; jar: StudioJar | null; goalUsd: number | null; receive: AssetWithIcon; dao: string | null }) {
   const raised = jar ? Number(jar.raised_usd_cents) / 100 : 0;
   const milestones = d.milestones.filter((m) => m.label.trim() && Number(m.usd) >= 1).sort((a, b) => Number(a.usd) - Number(b.usd));
   return (
@@ -620,6 +798,11 @@ function PagePreview({ d, jar, goalUsd, receive }: { d: Draft; jar: StudioJar | 
           <p className="break-words text-lg font-semibold leading-tight">{d.title.trim() || "Your jar title"}</p>
           {d.tagline.trim() && <p className="text-sm text-muted">{d.tagline}</p>}
         </div>
+        {dao && (
+          <p className="flex items-center gap-1.5 text-xs text-muted">
+            <DaoMark size={14} className="text-accent" /> Donations go to the <b className="font-semibold text-text">{daoLabel(dao)}</b> treasury
+          </p>
+        )}
         <div className="flex flex-col gap-2 rounded-2xl bg-surface p-3">
           <div className="flex items-baseline justify-between">
             <span className="text-xl font-semibold">{money(raised)}</span>
@@ -633,7 +816,7 @@ function PagePreview({ d, jar, goalUsd, receive }: { d: Draft; jar: StudioJar | 
           </div>
           <span className="btn-tactile-accent pointer-events-none justify-center rounded-[10px] py-2 text-sm">Donate</span>
           <span className="flex items-center justify-center gap-1.5 text-[11px] text-muted">
-            <Icon src={receive.icon} alt={receive.symbol} size={12} /> arrives as {receive.symbol} in near.com
+            <Icon src={receive.icon} alt={receive.symbol} size={12} /> arrives as {receive.symbol} {dao ? `in the ${daoLabel(dao)} treasury` : "in near.com"}
           </span>
         </div>
         {d.story.trim() ? <p className="line-clamp-4 whitespace-pre-line text-sm text-muted">{d.story}</p> : <p className="text-sm text-muted/60">Your story appears here.</p>}
@@ -696,6 +879,7 @@ function SignModal({
   jar,
   wallet,
   receive,
+  payout,
   onClose,
   onDone,
 }: {
@@ -703,8 +887,10 @@ function SignModal({
   jar: StudioJar | null;
   wallet: ConnectedWallet;
   receive: AssetWithIcon;
+  /** The DAO treasury the jar pays, or null for the signer's near.com balance. */
+  payout: string | null;
   onClose: () => void;
-  onDone: (r: { jarId: string; slugKept: boolean; pageError?: string }) => void;
+  onDone: (r: { jarId: string; pageError?: string }) => void;
 }) {
   // where publishing is: nothing yet, then the three steps the modal lists
   const [stage, setStage] = useState<"idle" | "prepare" | "sign" | "save">("idle");
@@ -724,6 +910,8 @@ function SignModal({
         goal_usd: d.goalOn ? d.goal : null,
         receive_asset: d.receive,
         page,
+        // only a new jar names it; an update signs the payout the contract already has
+        ...(jar ? {} : { payout }),
       };
       const prep = (await post("/api/jars/prepare", {
         signerId: wallet.account,
@@ -731,16 +919,18 @@ function SignModal({
         ...(jar ? { jarId: jar.id } : {}),
         jar: jarFields,
         standard: wallet.family === "near" ? "nep413" : undefined,
-      })) as { ok: boolean; message?: string; nonce?: string; recipient?: string; error?: string };
+      })) as { ok: boolean; message?: string; nonce?: string; recipient?: string; payout?: string | null; error?: string };
       if (!prep.ok || !prep.message || !prep.nonce || !prep.recipient) throw new Error(prep.error ?? "Could not prepare the jar.");
+      // check the text the wallet signs, not what prepare says about it
+      if (payoutInMessage(prep.message) !== payout) throw new Error("The payout doesn't match what you picked. Reload and publish again.");
 
       setStage("sign");
       const signed = await wallet.sign({ message: prep.message, nonce: prep.nonce, recipient: prep.recipient });
 
       setStage("save");
-      const res = (await post("/api/jars", { signed, page })) as { ok: boolean; jarId?: string; slugKept?: boolean; pageError?: string; error?: string };
+      const res = (await post("/api/jars", { signed, page })) as { ok: boolean; jarId?: string; pageError?: string; error?: string };
       if (!res.ok || !res.jarId) throw new Error(res.error ?? "The jar was not saved.");
-      onDone({ jarId: res.jarId, slugKept: res.slugKept ?? true, ...(res.pageError ? { pageError: res.pageError } : {}) });
+      onDone({ jarId: res.jarId, ...(res.pageError ? { pageError: res.pageError } : {}) });
     } catch (e) {
       const m = e instanceof Error ? e.message : "Something went wrong.";
       setError(/reject|denied|4001|cancel/i.test(m) ? "You cancelled in the wallet." : m);
@@ -758,7 +948,9 @@ function SignModal({
     },
     {
       title: "NearJar sends it to NEAR",
-      text: "Our relayer pays the gas. The contract checks with near.com that the key is yours.",
+      text: payout && !jar
+        ? "NearJar checks that you're in the DAO, then our relayer pays the gas. The contract checks with near.com that the key is yours."
+        : "Our relayer pays the gas. The contract checks with near.com that the key is yours.",
       active: stage === "save",
     },
     {
@@ -782,6 +974,11 @@ function SignModal({
               <p className="flex items-center gap-1.5 truncate text-sm text-muted">
                 {goal} · paid out in <Icon src={receive.icon} alt={receive.symbol} size={14} /> {receive.symbol}
               </p>
+              {payout && (
+                <p className="flex items-center gap-1.5 truncate text-sm text-accent">
+                  <DaoMark size={14} /> Donations go to the {daoLabel(payout)} treasury
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -819,11 +1016,16 @@ function SignModal({
               <ListRow label="Title" value={<span className="line-clamp-1 max-w-48">{d.title}</span>} />
               <ListRow label="Goal" value={d.goalOn ? money(Number(d.goal), 0) : "No goal"} />
               <ListRow label="Receive" value={receive.symbol} />
+              {payout && (
+                <ListRow label="Payout" hint={`The ${daoLabel(payout)} treasury · can't change later`} value={<span className="block max-w-48 truncate font-mono text-sm" title={payout}>{payout}</span>} />
+              )}
+              {page.slug && <ListRow label="Short link" hint="unique, kept by the contract" value={<span className="block max-w-48 truncate font-mono text-sm">/j/{page.slug}</span>} />}
               <ListRow label="Page" hint="cover, photo, milestones, amounts, note, links" value={images ? `${images} image${images === 1 ? "" : "s"} · fingerprint` : "fingerprint"} />
             </ListCard>
             <p className="text-xs text-muted">
-              The story and the fields above are stored by the NearJar contract. Images and the rest of the page are stored by NearJar; the signed text carries
-              their sha256 fingerprint, so nobody can change them without your signature.
+              The story, the fields above and the page&apos;s sha256 fingerprint are stored by the NearJar contract. Images and the rest of the page are stored by
+              NearJar and shown only while they match that fingerprint, so nobody can change them without your signature.
+              {jar?.payout && jar.endorsed ? " Publishing clears the DAO's endorsement until it endorses this version." : ""}
             </p>
           </div>
         </details>

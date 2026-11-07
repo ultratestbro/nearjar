@@ -3,9 +3,9 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { sourceAsset } from "./assets";
 import { db, type DonationRow } from "./db";
-import type { Jar } from "./jars";
+import { getJar, type Jar } from "./jars";
 import { relayCall } from "./near";
-import { quoteDonation, toNearCom } from "./quote";
+import { payoutOf, quoteDonation, toNearCom } from "./quote";
 
 const ONE_CLICK = process.env.ONE_CLICK_API_URL ?? "https://1click.chaindefuser.com/v0";
 const TERMINAL = new Set(["delivered", "refunded", "failed", "expired"]);
@@ -129,7 +129,7 @@ export async function refreshDonation(id: string): Promise<DonationRow | null> {
   let d = await getDonation(id);
   if (!d) return null;
   if (TERMINAL.has(d.status)) {
-    if (d.status === "delivered" && !d.recorded_tx) await recordOnChain(d);
+    if (d.status === "delivered" && !d.recorded_tx) await recordOnChain(d, await fetchStatus(d));
     return getDonation(id);
   }
 
@@ -148,7 +148,7 @@ export async function refreshDonation(id: string): Promise<DonationRow | null> {
     args: [status, s.amountOut, s.deliveredUsdCents, s.deliveryTx, s.sourceTx, Date.now(), id],
   });
   d = await getDonation(id);
-  if (d && d.status === "delivered" && !d.recorded_tx) await recordOnChain(d);
+  if (d && d.status === "delivered" && !d.recorded_tx) await recordOnChain(d, s);
   return getDonation(id);
 }
 
@@ -172,8 +172,26 @@ export async function refreshPending(jarId: string): Promise<number> {
   return changed.filter(Boolean).length;
 }
 
-async function recordOnChain(d: DonationRow): Promise<void> {
+/**
+ * Why 1Click's word on this deposit can't go on chain as the jar's donation, or null when it can:
+ * a finished swap, credited to the account the contract pays for this jar (its DAO treasury over
+ * public NEAR Intents, or the owner's near.com balance). The database row only says which deposit
+ * address to ask about; its status and amounts are never what gets recorded.
+ */
+export function receiptRefusal(jar: Pick<Jar, "owner" | "payout">, s: Status): string | null {
+  if (s.status !== "SUCCESS") return "not delivered";
+  const payout = payoutOf(jar);
+  if (s.recipient !== payout.account) return "delivered to another account";
+  const types = payout.dao ? ["INTENTS"] : ["INTENTS", "CONFIDENTIAL_INTENTS"];
+  if (!s.recipientType || !types.includes(s.recipientType)) return "delivered the wrong way";
+  if (!s.amountOut || !s.destinationAsset || (s.deliveredUsdCents ?? s.quotedUsdCents) === null) return "no amounts";
+  return null;
+}
+
+async function recordOnChain(d: DonationRow, s: Status): Promise<void> {
   if (d.jar_id === "demo") return; // the developer's support jar is not in the contract
+  const jar = await getJar(d.jar_id).catch(() => null);
+  if (!jar || receiptRefusal(jar, s)) return;
   // Claim the write first: two status polls must not both relay it.
   const claim = await (await db()).execute({
     sql: "UPDATE donations SET recorded_tx = 'pending', updated_at = ? WHERE id = ? AND recorded_tx IS NULL",
@@ -187,10 +205,10 @@ async function recordOnChain(d: DonationRow): Promise<void> {
       donation: {
         source_id: d.deposit_address + (d.deposit_memo ? `#${d.deposit_memo}` : ""),
         method: d.method,
-        usd_cents: String(d.delivered_usd_cents ?? d.usd_cents),
-        asset: d.receive_asset,
-        amount: d.amount_out ?? "0",
-        delivery_tx: d.delivery_tx ?? d.source_tx ?? "unknown",
+        usd_cents: String(s.deliveredUsdCents ?? s.quotedUsdCents),
+        asset: s.destinationAsset,
+        amount: s.amountOut,
+        delivery_tx: s.deliveryTx ?? s.sourceTx ?? d.delivery_tx ?? "unknown",
       },
     },
     30,
@@ -203,13 +221,36 @@ async function recordOnChain(d: DonationRow): Promise<void> {
   });
 }
 
-interface Status {
+export interface Status {
   status: string;
   amountOut: string | null;
   deliveredUsdCents: number | null;
   deliveryTx: string | null;
   sourceTx: string | null;
+  /** From the quote 1Click signed for this deposit address: who it credits, how, and in what. */
+  recipient: string | null;
+  recipientType: string | null;
+  destinationAsset: string | null;
+  quotedUsdCents: number | null;
 }
+
+const UNKNOWN: Status = {
+  status: "UNKNOWN",
+  amountOut: null,
+  deliveredUsdCents: null,
+  deliveryTx: null,
+  sourceTx: null,
+  recipient: null,
+  recipientType: null,
+  destinationAsset: null,
+  quotedUsdCents: null,
+};
+
+const cents = (usd: unknown): number | null => {
+  const n = typeof usd === "string" && usd ? Math.round(Number(usd) * 100) : NaN;
+  return Number.isSafeInteger(n) && n >= 0 ? n : null;
+};
+const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
 
 async function fetchStatus(d: DonationRow): Promise<Status> {
   const q = new URLSearchParams({ depositAddress: d.deposit_address });
@@ -219,9 +260,13 @@ async function fetchStatus(d: DonationRow): Promise<Status> {
       headers: process.env.ONE_CLICK_JWT ? { authorization: `Bearer ${process.env.ONE_CLICK_JWT}` } : {},
       signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) return { status: "UNKNOWN", amountOut: null, deliveredUsdCents: null, deliveryTx: null, sourceTx: null };
+    if (!res.ok) return UNKNOWN;
     const s = (await res.json()) as {
       status?: string;
+      quoteResponse?: {
+        quoteRequest?: { recipient?: unknown; recipientType?: unknown; destinationAsset?: unknown };
+        quote?: { amountOutUsd?: unknown };
+      };
       swapDetails?: {
         amountOut?: string;
         amountOutUsd?: string;
@@ -231,17 +276,21 @@ async function fetchStatus(d: DonationRow): Promise<Status> {
       };
     };
     const sd = s.swapDetails ?? {};
-    const usd = sd.amountOutUsd ? Math.round(Number(sd.amountOutUsd) * 100) : null;
+    const req = s.quoteResponse?.quoteRequest ?? {};
     return {
       status: s.status ?? "UNKNOWN",
-      amountOut: sd.amountOut ?? null,
-      deliveredUsdCents: Number.isFinite(usd) ? usd : null,
+      amountOut: str(sd.amountOut),
+      deliveredUsdCents: cents(sd.amountOutUsd),
       // credited inside intents.near: the NEAR tx is the delivery
       deliveryTx: hashOf(sd.nearTxHashes?.at(-1)) ?? hashOf(sd.destinationChainTxHashes?.[0]),
       sourceTx: hashOf(sd.originChainTxHashes?.[0]),
+      recipient: str(req.recipient),
+      recipientType: str(req.recipientType),
+      destinationAsset: str(req.destinationAsset),
+      quotedUsdCents: cents(s.quoteResponse?.quote?.amountOutUsd),
     };
   } catch {
-    return { status: "UNKNOWN", amountOut: null, deliveredUsdCents: null, deliveryTx: null, sourceTx: null };
+    return UNKNOWN;
   }
 }
 

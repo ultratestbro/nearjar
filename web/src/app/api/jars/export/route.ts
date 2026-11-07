@@ -16,9 +16,11 @@ export async function GET(request: Request) {
   const jars = await getJarsByOwner(owner.id).catch(() => null);
   if (!jars) return new Response("Could not read the contract.", { status: 502 });
   const titles = new Map(jars.map((j) => [j.id, j.title]));
+  // the account the contract pays for each jar: its DAO treasury, or the owner
+  const paidTo = new Map(jars.map((j) => [j.id, j.payout ?? j.owner]));
   const rows = await deliveredFor(jars.map((j) => j.id));
 
-  const header = ["date_utc", "jar", "donor", "message", "paid_with", "network", "amount_paid", "received", "received_asset", "usd", "source_tx", "delivery_tx"];
+  const header = ["date_utc", "jar", "paid_to", "donor", "message", "paid_with", "network", "amount_paid", "received", "received_asset", "usd", "source_tx", "delivery_tx"];
   const lines = rows.map((d) => {
     const src = SOURCE_ASSETS.find((a) => a.chain === d.source_chain && a.symbol === d.source_symbol);
     const rec = receiveAsset(d.receive_asset);
@@ -31,6 +33,7 @@ export async function GET(request: Request) {
     return [
       new Date(d.updated_at).toISOString().replace("T", " ").slice(0, 19),
       titles.get(d.jar_id) ?? d.jar_id,
+      paidTo.get(d.jar_id) ?? "",
       d.donor_name ?? "Anonymous",
       d.hidden ? "" : (d.message ?? ""),
       d.source_symbol,

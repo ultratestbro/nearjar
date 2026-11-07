@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { StudioCatalog } from "@/lib/assets";
 import { EMPTY_PAGE, type JarPageData } from "@/lib/pageData";
 import { PlusIcon } from "./ButtonIcons";
+import { DaoEndorse } from "./Dao";
 import { JarCover } from "./JarArt";
 import { JarEditor, type AssetWithIcon, type StudioJar } from "./JarEditor";
 import { ShareModal } from "./ShareModal";
@@ -13,7 +14,7 @@ import { Chevron, Icon, ListCard, Panel, Pill, PillTabs, Progress, Skeleton, ago
 import { ConnectPanel } from "./WalletMenu";
 import { useWallet } from "./WalletProvider";
 
-type Data = { account: string; jars: StudioJar[]; activity: Activity; pages: Record<string, JarPageData>; recent: Recent[] };
+type Data = { account: string; jars: StudioJar[]; activity: Activity; pages: Record<string, JarPageData>; recent: Recent[]; contract: string };
 type View = { kind: "home" } | { kind: "jar"; id: string } | { kind: "edit"; id: string | null };
 
 /** Creator studio in near.com's layout: jars in a sidebar, one rounded panel for the current view. */
@@ -40,7 +41,7 @@ export function Studio({ assets, catalog = { chains: [], tokens: {} }, startNew 
       .then((res) => {
         if (!live) return;
         if (res.ok && res.jars && res.activity)
-          setData({ account, jars: res.jars, activity: res.activity, pages: res.pages ?? {}, recent: res.recent ?? [] });
+          setData({ account, jars: res.jars, activity: res.activity, pages: res.pages ?? {}, recent: res.recent ?? [], contract: res.contract ?? "nearjar.near" });
         else setError(res.error ?? "Could not load your jars.");
       })
       .catch(() => live && setError("Could not load your jars."));
@@ -67,7 +68,7 @@ export function Studio({ assets, catalog = { chains: [], tokens: {} }, startNew 
   const loaded = data?.account === account ? data : null;
   const jars = loaded?.jars ?? [];
   const pageOf = (id: string) => loaded?.pages[id] ?? EMPTY_PAGE;
-  const jarPath = (j: StudioJar) => `/j/${pageOf(j.id).slug ?? j.id}`;
+  const jarPath = (j: StudioJar) => `/j/${j.slug ?? j.id}`;
   const current = view.kind !== "home" && view.id ? jars.find((j) => j.id === view.id) ?? null : null;
 
   const nav = (
@@ -143,7 +144,7 @@ export function Studio({ assets, catalog = { chains: [], tokens: {} }, startNew 
               onPublished={(r) => {
                 setReload((n) => n + 1);
                 setView({ kind: "jar", id: r.jarId });
-                setToast(r.pageError ?? (!r.slugKept ? "Saved · the short link was taken, the numbered link works" : r.isNew ? "Your jar is live" : "Changes are live"));
+                setToast(r.pageError ?? (r.isNew ? "Your jar is live" : "Changes are live"));
                 if (r.isNew) {
                   setShareSlug(r.slug);
                   setShare(r.jarId);
@@ -160,6 +161,7 @@ export function Studio({ assets, catalog = { chains: [], tokens: {} }, startNew 
               recent={(loaded?.recent ?? []).filter((r) => r.jarId === current.id)}
               asset={assets.find((a) => a.id === current.receive_asset)}
               path={jarPath(current)}
+              contract={loaded?.contract ?? "nearjar.near"}
               onBack={() => setView({ kind: "home" })}
               onEdit={() => setView({ kind: "edit", id: current.id })}
               onShare={() => setShare(current.id)}
@@ -186,7 +188,7 @@ export function Studio({ assets, catalog = { chains: [], tokens: {} }, startNew 
                 share={setShare}
               />
             ) : (
-              <Payouts account={account} />
+              <Payouts account={account} jars={jars} />
             )}
           </div>
         )}
@@ -194,7 +196,7 @@ export function Studio({ assets, catalog = { chains: [], tokens: {} }, startNew 
 
       {share && (() => {
         const j = jars.find((x) => x.id === share);
-        return <ShareModal path={`/j/${pageOf(share).slug ?? shareSlug ?? share}`} title={j?.title ?? "your jar"} raisedUsd={Number(j?.raised_usd_cents ?? 0) / 100} onClose={closeShare} />;
+        return <ShareModal path={`/j/${j?.slug ?? shareSlug ?? share}`} title={j?.title ?? "your jar"} raisedUsd={Number(j?.raised_usd_cents ?? 0) / 100} onClose={closeShare} />;
       })()}
 
       {toast && (
@@ -244,6 +246,7 @@ function JarDetail({
   recent,
   asset,
   path,
+  contract,
   onBack,
   onEdit,
   onShare,
@@ -254,6 +257,7 @@ function JarDetail({
   recent: Recent[];
   asset?: AssetWithIcon;
   path: string;
+  contract: string;
   onBack: () => void;
   onEdit: () => void;
   onShare: () => void;
@@ -278,6 +282,7 @@ function JarDetail({
           <div className="flex items-center gap-2">
             <h1 className="truncate text-2xl font-semibold tracking-tight">{jar.title}</h1>
             <Pill tone={open ? "accent" : "muted"}>{jar.status}</Pill>
+            {jar.payout && <Pill>DAO</Pill>}
           </div>
           <p className="mt-1 font-mono text-sm text-muted">nearjar.xyz{path}</p>
         </div>
@@ -301,6 +306,8 @@ function JarDetail({
         <Stat label="Last 7 days" value={money(week, 0)} />
         <Stat label="Receives" value={<span className="flex items-center gap-1.5">{asset && <Icon src={asset.icon} alt={asset.symbol} size={18} />}{asset?.symbol ?? "—"}</span>} />
       </div>
+
+      {jar.payout && <DaoEndorse dao={jar.payout} endorsed={jar.endorsed} jarId={jar.id} revision={jar.revision} contract={contract} />}
 
       {daily.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -345,7 +352,8 @@ function Stat({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function Payouts({ account }: { account: string }) {
+function Payouts({ account, jars }: { account: string; jars: StudioJar[] }) {
+  const daoJars = jars.filter((j) => j.payout);
   return (
     <div className="flex max-w-2xl flex-col gap-4">
       <div className="flex flex-col gap-2 rounded-2xl bg-surface p-5">
@@ -354,6 +362,15 @@ function Payouts({ account }: { account: string }) {
           Straight into <span className="font-mono text-text">nearcom:{shortAccount(account)}</span>, in the asset each jar receives. NearJar never holds the
           money and takes no fee.
         </p>
+        {daoJars.length > 0 && (
+          <ul className="mt-1 flex flex-col gap-1 text-sm">
+            {daoJars.map((j) => (
+              <li key={j.id} className="truncate text-muted">
+                <span className="text-text">{j.title}</span> pays the DAO treasury <span className="font-mono text-text">{j.payout}</span> instead
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-surface p-5">
         <div>

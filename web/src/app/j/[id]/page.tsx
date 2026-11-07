@@ -1,15 +1,17 @@
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
+import { DaoPayoutLine } from "@/components/Dao";
 import { DonatePanel } from "@/components/DonatePanel";
 import { JarAvatar, JarCover } from "@/components/JarArt";
 import { CopyAccount, DonateCta } from "@/components/JarMobile";
 import { ChippedIn, JarAbout, JarLinkRow, JarSupporters, JustGave, Stat, StatusChip, type SupporterRow } from "@/components/JarSections";
 import { Progress, money } from "@/components/ui";
 import { RECEIVE_ASSETS, SOURCE_ASSETS, receiveAsset } from "@/lib/assets";
+import { daoGovernance } from "@/lib/dao";
+import { trezuUrl } from "@/lib/daoPolicy";
 import { jarFeed, type FeedItem } from "@/lib/donations";
 import { resolveJar } from "@/lib/jars";
-import { EMPTY_PAGE } from "@/lib/pageData";
-import { getPage } from "@/lib/pages";
+import { getPage, trustedPage } from "@/lib/pages";
 import { CONFIDENTIAL_DELIVERY } from "@/lib/quote";
 
 // enough delivered donations for the full supporters list and an honest "networks used"
@@ -27,10 +29,16 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const jar = await resolveJar(decodeURIComponent(id)).catch(() => null);
   if (!jar) notFound();
-  const [feed, stored] = await Promise.all([jarFeed(jar.id, FEED_LIMIT).catch(() => [] as FeedItem[]), getPage(jar.id).catch(() => null)]);
-  const page = stored?.page ?? EMPTY_PAGE;
-  // /j/11 and the old numbered links land on the jar's short link, the one it is shared as
-  if (page.slug && decodeURIComponent(id) !== page.slug) redirect(`/j/${page.slug}`);
+  // /j/11, earlier links and other spellings land on the jar's current short link, from the contract
+  const canonical = jar.slug ?? jar.id;
+  if (decodeURIComponent(id) !== canonical) redirect(`/j/${canonical}`);
+  const [feed, stored, dao] = await Promise.all([
+    jarFeed(jar.id, FEED_LIMIT).catch(() => [] as FeedItem[]),
+    getPage(jar.id).catch(() => null),
+    // who decides over the treasury; unknown (and no claims about it) when NEAR can't be asked
+    jar.payout ? daoGovernance(jar.payout).catch(() => null) : null,
+  ]);
+  const page = trustedPage(jar, stored);
 
   const asset = receiveAsset(jar.receive_asset) ?? RECEIVE_ASSETS[0];
   const raised = Number(jar.raised_usd_cents) / 100;
@@ -44,7 +52,7 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
   // counted over the loaded feed; "+" when there may be older donations beyond it
   const networks = new Set(feed.map((f) => f.sourceChain)).size;
   const networksText = `${networks}${feed.length >= FEED_LIMIT ? "+" : ""}`;
-  const sharePath = `/j/${page.slug ?? jar.id}`;
+  const sharePath = `/j/${canonical}`;
 
   return (
     <div className={open ? "pb-24 lg:pb-0" : ""}>
@@ -63,6 +71,8 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
               <StatusChip open={open} long className={`hidden lg:inline-flex ${open ? "bg-accent/15" : "bg-bg/70"}`} />
               <h1 className="break-words text-[32px] font-semibold leading-[1.05] tracking-tight lg:mt-2 lg:text-5xl xl:text-[56px] xl:leading-[1.02]">{jar.title}</h1>
               {page.tagline && <p className="mt-1.5 text-text/85 lg:text-lg">{page.tagline}</p>}
+              {/* from the contract, like the delivery itself: a DAO jar's payout never comes from the page */}
+              {jar.payout && <DaoPayoutLine dao={jar.payout} endorsed={jar.endorsed} governance={dao?.governance ?? null} intentsKeys={dao?.intentsKeys ?? null} className="mt-3" />}
             </div>
           </div>
         </header>
@@ -84,6 +94,7 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
             presets={page.presets}
             thanks={page.thanks}
             confidential={CONFIDENTIAL_DELIVERY}
+            payoutDao={jar.payout}
             sharePath={sharePath}
             footer={<ChippedIn rows={supporters} count={count} />}
           />
@@ -113,12 +124,26 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
           <JarAbout story={jar.description} links={page.links} milestones={page.milestones} raisedUsd={raised} sharePath={sharePath} title={jar.title} />
           <JarSupporters rows={supporters} count={count} open={open} />
 
-          <p className="text-[13px] text-muted lg:text-sm">
-            Donations arrive as {asset.symbol} in <CopyAccount account={jar.owner} />.{" "}
-            {CONFIDENTIAL_DELIVERY
-              ? "They land in the owner's Confidential near.com balance, ready to use."
-              : "They land in the public (legacy) balance; the owner moves them to Confidential in near.com."}
-          </p>
+          {jar.payout ? (
+            <p className="text-[13px] text-muted lg:text-sm">
+              Donations arrive as {asset.symbol} in the public NEAR Intents balance of the DAO treasury{" "}
+              <a href={trezuUrl(jar.payout)} target="_blank" rel="noreferrer" className="font-mono text-text underline decoration-line underline-offset-4 hover:decoration-accent">
+                {jar.payout}
+              </a>
+              . Its members see them in Trezu and spend them by proposal
+              {dao && !dao.governance.solo && dao.intentsKeys === 0 && dao.governance.spend && dao.governance.spend.approvals > 1
+                ? `; no single member can move them (${dao.governance.spend.approvals} approvals needed)`
+                : ""}
+              . The jar was created by <CopyAccount account={jar.owner} />, and the payout is fixed in the NearJar contract.
+            </p>
+          ) : (
+            <p className="text-[13px] text-muted lg:text-sm">
+              Donations arrive as {asset.symbol} in <CopyAccount account={jar.owner} />.{" "}
+              {CONFIDENTIAL_DELIVERY
+                ? "They land in the owner's Confidential near.com balance, ready to use."
+                : "They land in the public (legacy) balance; the owner moves them to Confidential in near.com."}
+            </p>
+          )}
         </section>
       </div>
 

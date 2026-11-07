@@ -53,8 +53,10 @@ export const EMPTY_PAGE: JarPageData = {
 };
 
 const HASH = /^[0-9a-f]{64}$/;
-// a letter somewhere, so a short link never looks like a jar id
+// a letter somewhere, so a short link never looks like a jar id; the contract checks the same rule
 export const SLUG = /^(?=[a-z0-9-]*[a-z])[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
+/** Links the site itself serves (/j/support is the developer's jar), so no jar can claim them. */
+export const RESERVED_SLUGS: readonly string[] = ["support", "demo"];
 
 // uploads are stored by hash; a site path ("/icon-180.png") is only ever set by the server itself,
 // since parsePage accepts hashes alone
@@ -147,6 +149,7 @@ export function parsePage(raw: unknown): { ok: true; page: JarPageData } | { ok:
 
   const slug = r.slug ? String(r.slug).trim().toLowerCase() : null;
   if (slug && !SLUG.test(slug)) return { ok: false, error: "Short link: 3–40 letters, digits or dashes." };
+  if (slug && RESERVED_SLUGS.includes(slug)) return { ok: false, error: "That short link is reserved." };
 
   return {
     ok: true,

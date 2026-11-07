@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import type { ReceiveAsset } from "@/lib/assets";
+import { daoLabel } from "@/lib/daoPolicy";
 
 export interface PublicDonation {
   id: string;
@@ -27,6 +28,19 @@ const LABEL: Record<PublicDonation["status"], string> = {
   expired: "Expired — no deposit arrived",
 };
 
+/** The jar's DAO treasury, null for the creator's near.com balance, undefined when the jar couldn't be read. */
+type Payout = string | null | undefined;
+
+/** Where the money ends up, as the steps and labels name it; never a guess when the jar is unknown. */
+const destination = (dao: Payout) =>
+  dao ? `the ${daoLabel(dao)} treasury` : dao === null ? "the creator's near.com balance" : "the jar's payout account";
+
+function label(status: PublicDonation["status"], dao: Payout): string {
+  if (dao !== null && status === "processing") return `On its way to ${destination(dao)}`;
+  if (dao !== null && status === "delivered") return `Delivered to ${destination(dao)}`;
+  return LABEL[status];
+}
+
 const TERMINAL = new Set(["delivered", "refunded", "failed", "expired"]);
 
 const EXPLORERS: Record<string, string> = {
@@ -48,8 +62,8 @@ const EXPLORERS: Record<string, string> = {
 
 type StepState = "done" | "active" | "todo" | "failed";
 
-/** Where the donation is, as the donor sees it: wallet → NEAR Intents → swap → near.com. */
-function steps(d: PublicDonation, receive: ReceiveAsset): { label: string; hint: string; state: StepState }[] {
+/** Where the donation is, as the donor sees it: wallet → NEAR Intents → swap → near.com (or the DAO). */
+function steps(d: PublicDonation, receive: ReceiveAsset, dao: Payout): { label: string; hint: string; state: StepState }[] {
   const seen = d.status !== "awaiting_deposit";
   const settled = d.status === "delivered";
   const bad = d.status === "refunded" || d.status === "failed" || d.status === "expired";
@@ -65,13 +79,14 @@ function steps(d: PublicDonation, receive: ReceiveAsset): { label: string; hint:
       hint: d.status === "refunded" ? "refunded to your wallet" : d.status === "failed" ? "1Click refunds to your wallet" : "",
       state: settled ? "done" : bad && seen ? "failed" : d.status === "processing" ? "active" : "todo",
     },
-    { label: "In the creator's near.com balance", hint: "", state: settled ? "done" : "todo" },
+    { label: `In ${destination(dao)}`, hint: dao ? "public NEAR Intents balance" : "", state: settled ? "done" : "todo" },
   ];
 }
 
 export function DonationStatus({
   initial,
   receive,
+  payoutDao,
   etaSeconds,
   thanks,
   sharePath,
@@ -81,6 +96,8 @@ export function DonationStatus({
 }: {
   initial: PublicDonation;
   receive: ReceiveAsset;
+  /** The jar's DAO treasury (read from the contract), null for the creator's near.com balance, undefined when unknown. */
+  payoutDao: Payout;
   etaSeconds?: number;
   /** The creator's note, shown once the donation lands. */
   thanks?: string;
@@ -127,11 +144,11 @@ export function DonationStatus({
       <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold">{done ? "Thank you!" : bad ? "Donation didn't go through" : "Donation on its way"}</h2>
         <p className={`text-sm ${done ? "text-accent" : bad ? "text-danger" : "text-muted"}`}>
-          {done && jarTitle ? `${usd} landed in ${jarTitle}` : LABEL[d.status]}
+          {done && jarTitle ? `${usd} landed in ${jarTitle}` : label(d.status, payoutDao)}
         </p>
       </div>
 
-      {/* the route at a glance: your token → NEAR Intents → the creator's near.com balance */}
+      {/* the route at a glance: your token → NEAR Intents → the creator's near.com balance or the DAO */}
       <div className="flex items-start rounded-2xl bg-bg px-3 py-4 text-xs">
         <Node
           icon={
@@ -156,7 +173,7 @@ export function DonationStatus({
             </span>
           }
           title={receive.symbol}
-          sub="near.com"
+          sub={payoutDao ? `${daoLabel(payoutDao)} treasury` : payoutDao === null ? "near.com" : "payout"}
         />
       </div>
 
@@ -169,7 +186,7 @@ export function DonationStatus({
 
       {/* once it lands the route strip already shows every leg done */}
       {!done && <ol className="flex flex-col">
-        {steps(d, receive).map((s, i, all) => (
+        {steps(d, receive, payoutDao).map((s, i, all) => (
           <li key={s.label} className="flex gap-3">
             <div className="flex flex-col items-center">
               <StepIcon state={s.state} />
@@ -199,7 +216,7 @@ export function DonationStatus({
 
       <dl className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-line text-sm">
         <Row label="Amount">${(d.usdCents / 100).toFixed(2)} in {d.sourceSymbol}</Row>
-        {d.amountOut && <Row label="Creator got">{fmt(d.amountOut, receive.decimals)} {receive.symbol}</Row>}
+        {d.amountOut && <Row label={payoutDao ? "Treasury got" : payoutDao === null ? "Creator got" : "Delivered"}>{fmt(d.amountOut, receive.decimals)} {receive.symbol}</Row>}
         {d.deliveryTx && <Row label="Delivery"><TxLink chain="near:mainnet" hash={d.deliveryTx} /></Row>}
         {d.recordedTx && d.recordedTx !== "already-recorded" && <Row label="Jar receipt"><span className="font-mono">{short(d.recordedTx)}</span></Row>}
       </dl>

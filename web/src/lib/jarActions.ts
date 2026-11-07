@@ -16,22 +16,32 @@ export interface JarInput {
   goal_usd_cents: string | null;
   ends_at: string | null;
   receive_asset: string;
-  /** Fingerprint of the jar page (lib/pageData.ts); signed, not stored by the contract. */
+  /** The page's short link; signed and kept unique by the contract. */
+  slug: string | null;
+  /** Fingerprint of the jar page (lib/pageData.ts); signed and stored by the contract. */
   page_hash: string | null;
 }
 
+/**
+ * `payout` is the Sputnik DAO the jar pays instead of the signer (null: the signer's near.com
+ * balance). It is not an editable field: the contract stores it at creation and refuses an update
+ * that signs a different one, so updates repeat the jar's on-chain value.
+ */
 export type JarAction =
-  | { action: "create_jar"; jar: JarInput }
-  | { action: "update_jar"; jar_id: string; jar: JarInput }
+  | { action: "create_jar"; jar: JarInput; payout: string | null }
+  | { action: "update_jar"; jar_id: string; jar: JarInput; payout: string | null }
   | { action: "close_jar"; jar_id: string };
 
 /** Jar fields the way the contract takes them signed: `"goal": "$1,500"`, `"receive": "USDC"`. */
-function signedJar(jar: JarInput): Record<string, unknown> {
+function signedJar(jar: JarInput, payout: string | null): Record<string, unknown> {
   return {
     title: jar.title,
     ...(jar.description ? { description: jar.description } : {}),
     ...(jar.goal_usd_cents ? { goal: usd(BigInt(jar.goal_usd_cents)) } : {}),
     receive: receiveAsset(jar.receive_asset)!.symbol,
+    // in plain sight next to the asset, so the wallet shows where the money goes
+    ...(payout ? { payout } : {}),
+    ...(jar.slug ? { slug: jar.slug } : {}),
     ...(jar.image_url ? { image_url: jar.image_url } : {}),
     ...(jar.ends_at ? { ends_at: jar.ends_at } : {}),
     ...(jar.page_hash ? { page: `sha256:${jar.page_hash}` } : {}),
@@ -70,6 +80,7 @@ export function parseJarInput(raw: unknown): { ok: true; jar: JarInput; page: Ja
       goal_usd_cents: goalUsd === null ? null : String(Math.round(goalUsd * 100)),
       ends_at: null,
       receive_asset: asset,
+      slug: page ? page.page.slug : null,
       page_hash: page ? pageFingerprint(page.page) : null,
     },
     page: page ? page.page : null,
@@ -89,7 +100,7 @@ export function envelope(signerId: string, action: JarAction, { nep413 = false }
     {
       action: action.action,
       ...("jar_id" in action ? { jar_id: action.jar_id } : {}),
-      ...("jar" in action ? { jar: signedJar(action.jar) } : {}),
+      ...("jar" in action ? { jar: signedJar(action.jar, action.payout) } : {}),
       signer_id: signerId,
       ...(nep413 ? { deadline } : { verifying_contract: NEARJAR_CONTRACT, deadline, nonce }),
     },

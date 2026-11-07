@@ -8,6 +8,7 @@ import { DonationStatus, type PublicDonation } from "./DonationStatus";
 import { ManualDeposit } from "./ManualDeposit";
 import { PayWithSheet, amountText, heldKey, type Held } from "./PayWithSheet";
 import { Modal } from "./Modal";
+import { daoLabel } from "@/lib/daoPolicy";
 import { Chevron, Icon, ListCard, ListRow, Progress, money, shortAccount } from "./ui";
 import { useWallet } from "./WalletProvider";
 
@@ -70,6 +71,8 @@ export function DonatePanel(props: {
   thanks: string;
   sharePath: string;
   confidential: boolean;
+  /** The DAO treasury the jar pays (from the contract), or null for the owner's near.com balance. */
+  payoutDao: string | null;
   /** Under the Donate button, e.g. who already chipped in. */
   footer?: ReactNode;
 }) {
@@ -297,6 +300,7 @@ export function DonatePanel(props: {
         <DonationStatus
           initial={donation}
           receive={props.receive}
+          payoutDao={props.payoutDao}
           {...(quote ? { etaSeconds: quote.etaSeconds } : {})}
           thanks={props.thanks}
           sharePath={props.sharePath}
@@ -309,6 +313,8 @@ export function DonatePanel(props: {
   }
 
   const receiveOut = quote ? formatUnits(BigInt(quote.amountOut), props.receive.decimals) : null;
+  const dao = props.payoutDao;
+  const gets = dao ? "treasury gets" : "creator gets";
   const eta = quote ? `~${Math.max(1, Math.round(quote.etaSeconds / 60))} min` : "";
 
   if (step === "review" && token) {
@@ -329,15 +335,20 @@ export function DonatePanel(props: {
           <RouteArrow />
           <RouteNode icon={<span className="grid size-7 place-items-center rounded-full bg-text font-semibold text-bg">N</span>} title="NEAR Intents" sub="swap + route" />
           <RouteArrow />
-          <RouteNode icon={<span className="grid size-7 place-items-center rounded-full bg-accent font-semibold text-accent-ink">{props.jarTitle.slice(0, 1).toUpperCase()}</span>} title={props.receive.symbol} sub="near.com" />
+          <RouteNode icon={<span className="grid size-7 place-items-center rounded-full bg-accent font-semibold text-accent-ink">{props.jarTitle.slice(0, 1).toUpperCase()}</span>} title={props.receive.symbol} sub={dao ? `${daoLabel(dao)} treasury` : "near.com"} />
         </div>
 
         <ListCard>
           <ListRow label="You send" value={quote ? `${quote.amountInFormatted} ${token.symbol}` : loading ? "…" : "—"} />
-          <ListRow label="Creator gets" value={receiveOut ? `≈ ${receiveOut} ${props.receive.symbol}` : "—"} />
+          <ListRow label={dao ? "Treasury gets" : "Creator gets"} value={receiveOut ? `≈ ${receiveOut} ${props.receive.symbol}` : "—"} />
           <ListRow label="Route fee" hint="NEAR Intents · NearJar takes nothing" value={quote ? money(quote.feeUsd) : "—"} />
           <ListRow label="Arrives" value={eta || "—"} />
-          <ListRow label="Lands in" value={props.confidential ? "Confidential balance" : "Public balance"} />
+          {dao ? (
+            <ListRow label="Lands in" hint="spent by DAO proposal"
+              value={<span className="block max-w-52 truncate" title={dao}>{daoLabel(dao)} treasury (NEAR Intents)</span>} />
+          ) : (
+            <ListRow label="Lands in" value={props.confidential ? "Confidential balance" : "Public balance"} />
+          )}
           {(name || message) && <ListRow label={name || "Anonymous"} hint={message || undefined} />}
         </ListCard>
 
@@ -470,7 +481,7 @@ export function DonatePanel(props: {
           </p>
         ) : quote && token && quotable ? (
           <p className="text-muted">
-            {quote.amountInFormatted} {token.symbol} · creator gets ≈ {receiveOut} {props.receive.symbol} · {eta}
+            {quote.amountInFormatted} {token.symbol} · {gets} ≈ {receiveOut} {props.receive.symbol} · {eta}
           </p>
         ) : error && quotable ? (
           <p className="text-danger">{error}</p>

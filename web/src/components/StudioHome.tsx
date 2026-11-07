@@ -2,6 +2,7 @@
 
 import { useState, type PointerEvent, type ReactNode } from "react";
 import type { StudioCatalog } from "@/lib/assets";
+import { daoLabel } from "@/lib/daoPolicy";
 import type { JarPageData } from "@/lib/pageData";
 import { JarCover } from "./JarArt";
 import type { StudioJar } from "./JarEditor";
@@ -24,7 +25,7 @@ export const incomplete = (j: StudioJar, p: JarPageData) => j.status === "Open" 
 function setupSteps(j: StudioJar, p: JarPageData) {
   return [
     { label: "Name your jar", done: !!j.title.trim() },
-    { label: "Payouts to near.com", done: !!j.receive_asset },
+    { label: j.payout ? `Payouts to the ${daoLabel(j.payout)} treasury` : "Payouts to near.com", done: !!j.receive_asset },
     { label: "Add a cover image", done: hasCover(j, p), action: "Add" },
     { label: "Write a short story", done: !!j.description.trim(), action: "Write" },
   ];
@@ -450,6 +451,12 @@ function JarCard({ jar, page, mask, onOpen, onEdit, onShare }: {
   ) : (
     <span className="flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs"><span className="size-[7px] rounded-full bg-accent" />Live</span>
   );
+  const dao = jar.payout && (
+    <span title={`Pays the ${jar.payout} treasury${jar.endorsed ? ", endorsed by the DAO" : ""}`}
+      className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium">
+      DAO{jar.endorsed && <span className="text-accent">✓</span>}
+    </span>
+  );
   // the card is bg-surface, so its keys sit a step lighter
   const btn = "btn-tactile h-10 flex-1 justify-center bg-surface-2 text-sm font-medium hover:bg-line";
 
@@ -464,11 +471,13 @@ function JarCard({ jar, page, mask, onOpen, onEdit, onShare }: {
           </svg>
           <span className="font-medium text-amber-300">Add a cover</span>
           <span className="absolute left-2.5 top-2.5">{badge}</span>
+          {dao}
         </button>
       ) : (
         <button type="button" onClick={onOpen} aria-label={`Open ${jar.title}`} className="relative block">
           <JarCover page={page} legacyImage={jar.image_url} className="aspect-video w-full" />
           <span className="absolute left-3 top-3">{badge}</span>
+          {dao}
         </button>
       )}
       <div className="flex flex-1 flex-col gap-3 p-4">

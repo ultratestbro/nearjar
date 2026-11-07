@@ -2,15 +2,19 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import { db } from "./db";
-import { EMPTY_PAGE, SLUG, type JarPageData } from "./pageData";
+import type { Jar } from "./jars";
+import { EMPTY_PAGE, type JarPageData } from "./pageData";
+
+const sha256 = (data: string | Uint8Array) => createHash("sha256").update(data).digest("hex");
 
 /** sha256 hex of the canonical page JSON; the owner signs it as the jar's `"page": "sha256:<hex>"`. */
 export function pageFingerprint(page: JarPageData): string {
-  return createHash("sha256").update(JSON.stringify(page)).digest("hex");
+  return sha256(JSON.stringify(page));
 }
 
 export interface StoredPage {
   page: JarPageData;
+  /** sha256 of the stored JSON text itself, computed on read: the `hash` column is not trusted. */
   hash: string;
   txHash: string | null;
 }
@@ -42,7 +46,14 @@ export async function getPages(jarIds: string[]): Promise<Record<string, StoredP
   });
   const out: Record<string, StoredPage> = {};
   for (const x of r.rows) {
-    out[String(x.jar_id)] = { page: { ...EMPTY_PAGE, ...JSON.parse(String(x.page)) }, hash: String(x.hash), txHash: (x.tx_hash as string | null) ?? null };
+    const text = String(x.page);
+    let page: JarPageData;
+    try {
+      page = { ...EMPTY_PAGE, ...JSON.parse(text) };
+    } catch {
+      continue;
+    }
+    out[String(x.jar_id)] = { page, hash: sha256(text), txHash: (x.tx_hash as string | null) ?? null };
   }
   return out;
 }
@@ -51,39 +62,27 @@ export async function getPage(jarId: string): Promise<StoredPage | null> {
   return (await getPages([jarId]))[jarId] ?? null;
 }
 
-export async function jarIdBySlug(slug: string): Promise<string | null> {
-  if (!SLUG.test(slug)) return null;
-  const r = await (await db()).execute({ sql: `SELECT jar_id FROM jar_pages WHERE slug = ?`, args: [slug] });
-  return r.rows[0] ? String(r.rows[0].jar_id) : null;
-}
-
-export async function slugAvailable(slug: string, jarId?: string): Promise<boolean> {
-  const owner = await jarIdBySlug(slug);
-  return owner === null || owner === jarId;
+/**
+ * The page to show for a jar read from the contract: the stored one only when its text hashes to
+ * the fingerprint the owner signed and the contract keeps. Anything else (a page edited in the
+ * database, or one whose save failed after an update) shows as the empty page, never as the jar's.
+ */
+export function trustedPage(jar: Pick<Jar, "id" | "page">, stored: StoredPage | null): JarPageData {
+  if (jar.id === "demo") return SUPPORT_PAGE.page;
+  return stored && jar.page === `sha256:${stored.hash}` ? stored.page : EMPTY_PAGE;
 }
 
 /**
  * Stores the page of a jar whose signed create/update the contract just accepted. The short link
- * is kept only while no other jar holds it; returns whether it was.
+ * lives in the contract (unique there); the `slug` column is no longer written.
  */
-export async function savePage(jarId: string, page: JarPageData, hash: string, txHash: string | null): Promise<{ slugKept: boolean }> {
-  const c = await db();
-  const slugKept = !page.slug || (await slugAvailable(page.slug, jarId));
-  const slug = slugKept ? page.slug : null;
-  try {
-    await c.execute({
-      sql: `INSERT INTO jar_pages (jar_id, page, hash, slug, tx_hash, updated_at) VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT (jar_id) DO UPDATE SET page = excluded.page, hash = excluded.hash, slug = excluded.slug,
-          tx_hash = excluded.tx_hash, updated_at = excluded.updated_at`,
-      args: [jarId, JSON.stringify(page), hash, slug, txHash, Date.now()],
-    });
-    return { slugKept };
-  } catch (e) {
-    // another jar took the short link between the check and the write
-    if (!slug || !/UNIQUE/i.test(String(e))) throw e;
-    await savePage(jarId, { ...page, slug: null }, hash, txHash);
-    return { slugKept: false };
-  }
+export async function savePage(jarId: string, page: JarPageData, hash: string, txHash: string | null): Promise<void> {
+  await (await db()).execute({
+    sql: `INSERT INTO jar_pages (jar_id, page, hash, slug, tx_hash, updated_at) VALUES (?, ?, ?, NULL, ?, ?)
+      ON CONFLICT (jar_id) DO UPDATE SET page = excluded.page, hash = excluded.hash, slug = NULL,
+        tx_hash = excluded.tx_hash, updated_at = excluded.updated_at`,
+    args: [jarId, JSON.stringify(page), hash, txHash, Date.now()],
+  });
 }
 
 // ---------- images ----------
@@ -101,7 +100,7 @@ export function sniffImage(b: Uint8Array): "image/jpeg" | "image/png" | "image/w
 
 /** Content-addressed: the id is the sha256 of the bytes, so the signed page pins the exact picture. */
 export async function saveImage(bytes: Uint8Array, mime: string): Promise<string> {
-  const hash = createHash("sha256").update(bytes).digest("hex");
+  const hash = sha256(bytes);
   await (await db()).execute({
     sql: `INSERT INTO images (hash, mime, bytes, size, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (hash) DO NOTHING`,
     args: [hash, mime, bytes, bytes.length, Date.now()],
@@ -109,9 +108,13 @@ export async function saveImage(bytes: Uint8Array, mime: string): Promise<string
   return hash;
 }
 
+/** The image whose bytes hash to `hash`; bytes changed in the database don't match and aren't served. */
 export async function getImage(hash: string): Promise<{ mime: string; bytes: Uint8Array } | null> {
   const r = await (await db()).execute({ sql: `SELECT mime, bytes FROM images WHERE hash = ?`, args: [hash] });
   const row = r.rows[0];
   if (!row) return null;
-  return { mime: String(row.mime), bytes: new Uint8Array(row.bytes as ArrayBuffer) };
+  const bytes = new Uint8Array(row.bytes as ArrayBuffer);
+  const mime = sniffImage(bytes);
+  if (sha256(bytes) !== hash || !mime) return null;
+  return { mime, bytes };
 }
