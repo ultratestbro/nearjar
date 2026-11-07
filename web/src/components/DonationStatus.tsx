@@ -54,7 +54,7 @@ function steps(d: PublicDonation, receive: ReceiveAsset): { label: string; hint:
   const settled = d.status === "delivered";
   const bad = d.status === "refunded" || d.status === "failed" || d.status === "expired";
   return [
-    { label: "Sent from your wallet", hint: d.sourceSymbol, state: d.sourceTx ? "done" : "active" },
+    { label: "Sent from your wallet", hint: "", state: d.sourceTx ? "done" : "active" },
     {
       label: "Deposit received by NEAR Intents",
       hint: seen ? "" : "waiting for network confirmations",
@@ -77,6 +77,7 @@ export function DonationStatus({
   sharePath,
   jarTitle,
   onAgain,
+  art,
 }: {
   initial: PublicDonation;
   receive: ReceiveAsset;
@@ -86,8 +87,11 @@ export function DonationStatus({
   sharePath?: string;
   jarTitle?: string;
   onAgain?: (deliveredUsd: number) => void;
+  /** Logos for the route strip: the token paid with, its network, and the token the creator gets. */
+  art?: { icon: string; chainIcon: string; chainLabel: string; receiveIcon: string };
 }) {
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [d, setD] = useState(initial);
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
@@ -114,11 +118,46 @@ export function DonationStatus({
 
   const done = d.status === "delivered";
   const bad = d.status === "refunded" || d.status === "failed" || d.status === "expired";
+  const seen = d.status !== "awaiting_deposit";
+  const spent = now - startedAt;
+  const eta = etaSeconds ? etaSeconds * 1000 : 0;
+  const usd = `$${(d.usdCents / 100).toFixed(2)}`;
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold">{done ? "Thank you!" : bad ? "Donation didn't go through" : "Donation on its way"}</h2>
-        <p className={`text-sm ${done ? "text-accent" : bad ? "text-danger" : "text-muted"}`}>{LABEL[d.status]}</p>
+        <p className={`text-sm ${done ? "text-accent" : bad ? "text-danger" : "text-muted"}`}>
+          {done && jarTitle ? `${usd} landed in ${jarTitle}` : LABEL[d.status]}
+        </p>
+      </div>
+
+      {/* the route at a glance: your token → NEAR Intents → the creator's near.com balance */}
+      <div className="flex items-start rounded-2xl bg-panel px-3 py-4 text-xs">
+        <Node
+          icon={
+            <span className="relative">
+              <Logo src={art?.icon} alt={d.sourceSymbol} />
+              {art?.chainIcon && art.chainIcon !== art.icon && (
+                <img src={art.chainIcon} alt="" className="absolute -bottom-0.5 -right-0.5 size-4 rounded-full ring-2 ring-panel" />
+              )}
+            </span>
+          }
+          title={`${usd} ${d.sourceSymbol}`}
+          sub={art?.chainLabel ?? "your wallet"}
+        />
+        <Track state={seen ? (bad && d.status === "expired" ? "failed" : "done") : d.status === "expired" ? "failed" : "moving"} />
+        <Node icon={<span className="grid size-9 place-items-center rounded-full bg-text text-sm font-semibold text-bg">N</span>} title="NEAR Intents" sub="swap + route" />
+        <Track state={done ? "done" : bad && seen ? "failed" : seen ? "moving" : "idle"} />
+        <Node
+          icon={
+            <span className="relative">
+              <Logo src={art?.receiveIcon} alt={receive.symbol} />
+              {done && <span className="absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full bg-accent text-[9px] text-accent-ink ring-2 ring-panel">✓</span>}
+            </span>
+          }
+          title={receive.symbol}
+          sub="near.com"
+        />
       </div>
 
       {done && thanks && (
@@ -128,7 +167,8 @@ export function DonationStatus({
         </figure>
       )}
 
-      <ol className="flex flex-col">
+      {/* once it lands the route strip already shows every leg done */}
+      {!done && <ol className="flex flex-col">
         {steps(d, receive).map((s, i, all) => (
           <li key={s.label} className="flex gap-3">
             <div className="flex flex-col items-center">
@@ -136,24 +176,32 @@ export function DonationStatus({
               {i < all.length - 1 && <span className={`my-1 w-px flex-1 ${s.state === "done" ? "bg-accent/60" : "bg-line"}`} />}
             </div>
             <div className="flex flex-col pb-4">
-              <span className={s.state === "todo" ? "text-muted" : s.state === "failed" ? "text-danger" : "text-text"}>{s.label}</span>
+              <span className={s.state === "todo" ? "text-muted" : s.state === "failed" ? "text-danger" : s.state === "active" ? "font-medium text-text" : "text-text"}>{s.label}</span>
               {s.hint && <span className="text-xs text-muted">{s.hint}</span>}
+              {i === 0 && d.sourceTx && <TxLink chain={d.sourceChain} hash={d.sourceTx} className="text-xs" />}
             </div>
           </li>
         ))}
-      </ol>
+      </ol>}
       {!TERMINAL.has(d.status) && (
-        <p className="-mt-2 text-sm text-muted">
-          {elapsed(now - startedAt)} elapsed{etaSeconds ? ` · usually ~${Math.max(1, Math.round(etaSeconds / 60))} min` : ""}
-        </p>
+        <div className="-mt-2 flex flex-col gap-1.5">
+          {eta > 0 && (
+            <div className="h-1 overflow-hidden rounded-full bg-surface-2">
+              <div className="h-full rounded-full bg-accent transition-[width] duration-1000 ease-linear" style={{ width: `${Math.min(95, (spent / eta) * 100)}%` }} />
+            </div>
+          )}
+          <p className="text-sm text-muted">
+            {elapsed(spent)}
+            {eta > 0 && (spent > eta * 1.5 ? " · taking longer than usual, your money is safe" : ` · usually ~${Math.max(1, Math.round(etaSeconds! / 60))} min`)}
+          </p>
+        </div>
       )}
 
       <dl className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-line text-sm">
         <Row label="Amount">${(d.usdCents / 100).toFixed(2)} in {d.sourceSymbol}</Row>
         {d.amountOut && <Row label="Creator got">{fmt(d.amountOut, receive.decimals)} {receive.symbol}</Row>}
-        {d.sourceTx && <Row label="Your tx"><TxLink chain={d.sourceChain} hash={d.sourceTx} /></Row>}
         {d.deliveryTx && <Row label="Delivery"><TxLink chain="near:mainnet" hash={d.deliveryTx} /></Row>}
-        {d.recordedTx && d.recordedTx !== "already-recorded" && <Row label="Jar receipt"><span className="font-mono">{d.recordedTx}</span></Row>}
+        {d.recordedTx && d.recordedTx !== "already-recorded" && <Row label="Jar receipt"><span className="font-mono">{short(d.recordedTx)}</span></Row>}
       </dl>
 
       {done && (onAgain || sharePath) && (
@@ -188,10 +236,20 @@ export function DonationStatus({
         </button>
       )}
       {!TERMINAL.has(d.status) && (
-        <p className="text-xs text-muted">
-          This updates by itself. You can close it — the donation continues;{" "}
-          <a className="underline" href={`/d/${d.id}`}>this link</a> shows its status later.
-        </p>
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-line px-4 py-3">
+          <p className="text-xs text-muted">Safe to close: the donation keeps going. Its status link opens it again.</p>
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard.writeText(`${window.location.origin}/d/${d.id}`);
+              setLinkCopied(true);
+              setTimeout(() => setLinkCopied(false), 1500);
+            }}
+            className="shrink-0 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-medium hover:bg-line"
+          >
+            {linkCopied ? "Copied" : "Copy link"}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -221,12 +279,48 @@ function elapsed(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-function TxLink({ chain, hash }: { chain: string; hash: string }) {
+function TxLink({ chain, hash, className = "" }: { chain: string; hash: string; className?: string }) {
   const base = EXPLORERS[chain];
   return base ? (
-    <a className="font-mono underline" href={base + hash} target="_blank" rel="noreferrer">{hash}</a>
+    <a className={`font-mono text-muted underline decoration-line underline-offset-2 hover:text-text ${className}`} href={base + hash} target="_blank" rel="noreferrer" title={hash}>
+      {short(hash)} ↗
+    </a>
   ) : (
-    <span className="font-mono">{hash}</span>
+    <span className={`font-mono text-muted ${className}`} title={hash}>{short(hash)}</span>
+  );
+}
+
+/** "0x68771450d2…" → "0x6877…3f95": enough to recognise a hash, the full one is in the link. */
+function short(hash: string): string {
+  return hash.length > 16 ? `${hash.slice(0, 6)}…${hash.slice(-4)}` : hash;
+}
+
+function Logo({ src, alt }: { src?: string; alt: string }) {
+  return src ? (
+    <img src={src} alt={alt} className="size-9 rounded-full bg-surface-2" />
+  ) : (
+    <span className="grid size-9 place-items-center rounded-full bg-surface-2 text-sm font-semibold">{alt.slice(0, 1)}</span>
+  );
+}
+
+function Node({ icon, title, sub }: { icon: ReactNode; title: string; sub: string }) {
+  return (
+    <div className="flex w-[30%] min-w-0 flex-col items-center gap-1.5 text-center">
+      {icon}
+      <span className="w-full truncate font-medium">{title}</span>
+      <span className="w-full truncate text-muted">{sub}</span>
+    </div>
+  );
+}
+
+/** The line between two route nodes; a coin travels along it while that leg is under way. */
+function Track({ state }: { state: "idle" | "moving" | "done" | "failed" }) {
+  return (
+    <div className="relative mt-[17px] h-0.5 min-w-4 flex-1 rounded-full bg-line">
+      {state === "done" && <div className="absolute inset-0 rounded-full bg-accent" />}
+      {state === "failed" && <div className="absolute inset-0 rounded-full bg-danger/70" />}
+      {state === "moving" && <span className="travel absolute -top-[3px] size-2 rounded-full bg-accent shadow-[0_0_8px_var(--accent)]" />}
+    </div>
   );
 }
 

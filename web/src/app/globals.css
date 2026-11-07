@@ -59,8 +59,27 @@ body {
 .orbit {
   animation: orbit linear infinite;
 }
+/* a coin moving along a donation's route while that leg is under way */
+@keyframes travel {
+  from {
+    left: 0;
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  to {
+    left: calc(100% - 0.5rem);
+    opacity: 0;
+  }
+}
+.travel {
+  animation: travel 1.6s ease-in-out infinite;
+}
 @media (prefers-reduced-motion: reduce) {
-  .orbit {
+  .orbit,
+  .travel {
     animation: none;
   }
 }

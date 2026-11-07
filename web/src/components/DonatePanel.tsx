@@ -298,6 +298,7 @@ export function DonatePanel(props: {
           sharePath={props.sharePath}
           jarTitle={props.jarTitle}
           onAgain={giveAgain}
+          art={donationArt(props.sources, donation, props.receive.id)}
         />
       </aside>
     );
@@ -521,6 +522,17 @@ function AmountPill({ on, onClick, children }: { on: boolean; onClick: () => voi
 
 function Spinner() {
   return <span className="size-4 animate-spin rounded-full border-2 border-accent-ink/30 border-t-accent-ink" />;
+}
+
+/** The route strip's logos, from the catalog the panel already has. */
+function donationArt(sources: SourceAsset[], d: PublicDonation, receiveId: string) {
+  const src = sources.find((s) => s.chain === d.sourceChain && s.symbol === d.sourceSymbol);
+  return {
+    icon: src?.icon ?? "",
+    chainIcon: src?.chainIcon ?? "",
+    chainLabel: src?.chainLabel ?? d.sourceChain,
+    receiveIcon: sources.find((s) => s.assetId === receiveId)?.icon ?? "",
+  };
 }
 
 function RouteNode({ icon, title, sub }: { icon: ReactNode; title: string; sub: string }) {
