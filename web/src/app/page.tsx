@@ -13,6 +13,8 @@ const chip = "flex items-center gap-2 self-start rounded-full bg-surface px-3 py
 
 export default function Home() {
   const chains = [...new Map(SOURCE_ASSETS.map((a) => [a.chain, { label: a.chainLabel, icon: a.chainIcon }])).values()];
+  // one of each token logo for the coins flying into the jar
+  const tokens = [...new Map(SOURCE_ASSETS.filter((a) => a.icon).map((a) => [a.icon, { symbol: a.symbol, icon: a.icon, chainIcon: a.chainIcon }])).values()];
   return (
     <div className="flex flex-col gap-16 py-6">
       <section className="grid items-center gap-10 pt-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
@@ -26,7 +28,7 @@ export default function Home() {
           </div>
         </div>
         <div className="flex flex-col items-center gap-4">
-          <ChainOrbit chains={chains} />
+          <ChainOrbit chains={chains} tokens={tokens} />
           <p className="max-w-sm text-center text-lg text-muted">
             Donors pay from {chains.length} networks. It all lands in your near.com balance.
           </p>

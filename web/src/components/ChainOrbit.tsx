@@ -1,4 +1,4 @@
-import { LogoMark } from "./Logo";
+import { JarDrops, type DropToken } from "./JarDrops";
 
 type Chain = { label: string; icon: string | null | undefined };
 
@@ -10,10 +10,10 @@ const RINGS = [
 ];
 
 /**
- * Every network donors pay from, on slow orbits around the jar they all land in. Clipped: a
- * spinning square's corners would otherwise widen the page on phones.
+ * Every network donors pay from, on slow orbits around the jar they all land in, with their tokens
+ * dropping into it. Clipped: a spinning square's corners would otherwise widen the page on phones.
  */
-export function ChainOrbit({ chains }: { chains: Chain[] }) {
+export function ChainOrbit({ chains, tokens }: { chains: Chain[]; tokens: DropToken[] }) {
   const rings = RINGS.map((ring, i) => {
     const from = RINGS.slice(0, i).reduce((n, x) => n + x.n, 0);
     // the outer ring takes whatever is left
@@ -51,9 +51,7 @@ export function ChainOrbit({ chains }: { chains: Chain[] }) {
           </div>
         </div>
       ))}
-      <div className="absolute inset-[38%] grid place-items-center rounded-full bg-panel shadow-[0_0_80px_-10px_var(--accent)] ring-1 ring-accent/40">
-        <LogoMark size={44} orbit={false} />
-      </div>
+      <JarDrops tokens={tokens} />
     </div>
   );
 }
