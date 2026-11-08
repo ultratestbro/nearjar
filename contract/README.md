@@ -94,7 +94,7 @@ Rust is pinned to 1.97.1 (`rust-toolchain.toml`), the same as near/intents.
 
 ## Mainnet
 
-Live since 2026-11-07 (wasm `7Xcyk6ciTSiwmqFhAFUGHudgwUtMcCjUBbpaJXgoDJqi`, the same build as testnet). That build has no DAO payout. The 0.2.0 build (DAO payouts, on-chain short links and page fingerprints) changes the stored `Jar` layout but not the contract state (`NearJar` and the existing storage prefixes are unchanged), so it upgrades in place only while `jars_count` is 0 (it was on 2026-11-08). Deploy it in one transaction with the guard, so the upgrade reverts if a jar was created in the meantime:
+Live since 2026-11-07; 0.1.0 (wasm `7Xcyk6ciTSiwmqFhAFUGHudgwUtMcCjUBbpaJXgoDJqi`, the same build as testnet) had no DAO payout. The 0.2.0 build (DAO payouts, on-chain short links and page fingerprints) changes the stored `Jar` layout but not the contract state (`NearJar` and the existing storage prefixes are unchanged), so it upgrades in place only while `jars_count` is 0 (it was on 2026-11-08). Deploy it in one transaction with the guard, so the upgrade reverts if a jar was created in the meantime:
 
 ```sh
 near contract deploy nearjar.near use-file target/near/nearjar.wasm \
@@ -111,6 +111,8 @@ near contract call-function as-read-only nearjar.near get_config json-args '{}' 
 | [`relayer.nearjar.near`](https://nearblocks.io/address/relayer.nearjar.near) | relayer; the server holds only a function-call key limited to `submit` and `record_donation` on `nearjar.near` |
 
 Deploy + `new(...)`: [`2fhHk9zS…`](https://nearblocks.io/txns/2fhHk9zSrjfxufNo13WtEmKLbXyHi34U3ECZfQni4cQ3) · `add_relayer`: [`ALDC7icy…`](https://nearblocks.io/txns/ALDC7icyngJZ6TB4PzS2WioAqxTEXabuPCdHkXChwkzq).
+
+0.2.0 is live since 2026-11-08: wasm `GxM9VeG6KT2uBAygcWP1mTRPVDDL9UpEZzFXBY1H6KzW` (sha256 `ed0d072e…f617` of `target/near/nearjar.wasm`), deploy with `assert_no_jars`: [`Bixmq42w…`](https://nearblocks.io/txns/Bixmq42wknUFM1NwLF7p4KCD1mncwtwaghcwCUAWKa8x). Release check through nearjar.xyz with a throwaway implicit account: jar #0 created with short link `smoke-020-a` ([`J5v3jgCB…`](https://nearblocks.io/txns/J5v3jgCBiWJZThgD9ZX3xfUophBwSQyxGLJ2aFgoWQrj)), edited to `smoke-020-b`, revision 1 ([`5J8aJFdZ…`](https://nearblocks.io/txns/5J8aJFdZUPVHZu7F476qVDciLQU5WvN5xgUbhRYoXx71)), closed ([`4BxVGijr…`](https://nearblocks.io/txns/4BxVGijrZcohMVNhuVXnxAo3mkwHLk74qkHebAFyDZB9)).
 
 ## Testnet
 
