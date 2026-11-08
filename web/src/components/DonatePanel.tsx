@@ -313,6 +313,7 @@ export function DonatePanel(props: {
   }
 
   const receiveOut = quote ? formatUnits(BigInt(quote.amountOut), props.receive.decimals) : null;
+  const receiveOutShort = quote ? amountText(quote.amountOut, props.receive.decimals) : null;
   const dao = props.payoutDao;
   const gets = dao ? "treasury gets" : "creator gets";
   const eta = quote ? `~${Math.max(1, Math.round(quote.etaSeconds / 60))} min` : "";
@@ -452,14 +453,14 @@ export function DonatePanel(props: {
               <span className="hidden lg:inline">Pay with</span>
             </span>
             <span className="truncate text-[13px] text-muted">
-              <span className="lg:hidden">{token ? `Pay with${tokenHeld ? ` · ${amountText(tokenHeld.amount, token.decimals)} available` : ""}` : "Pick a network"}</span>
+              <span className="lg:hidden">{token ? `Pay with${tokenHeld ? ` · ${amountText(tokenHeld.amount, token.decimals, 4)} available` : ""}` : "Pick a network"}</span>
               <span className="hidden lg:inline">
-                {token ? `${token.symbol} on ${token.chainLabel}${tokenHeld ? ` · ${amountText(tokenHeld.amount, token.decimals)} available` : ""}` : "Pick a network"}
+                {token ? `${token.symbol} on ${token.chainLabel}${tokenHeld ? ` · ${amountText(tokenHeld.amount, token.decimals, 4)} available` : ""}` : "Pick a network"}
               </span>
             </span>
           </span>
           <span className="flex shrink-0 items-center gap-1 text-sm text-muted">
-            Change <Chevron />
+            <span className="lg:sr-only">Change</span> <Chevron />
           </span>
         </button>
         <button type="button" onClick={() => setModal("note")} className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-left text-sm transition hover:bg-surface">
@@ -481,7 +482,12 @@ export function DonatePanel(props: {
           </p>
         ) : quote && token && quotable ? (
           <p className="text-muted">
-            {quote.amountInFormatted} {token.symbol} · {gets} ≈ {receiveOut} {props.receive.symbol} · {eta}
+            {/* each part stays on one line, so a wrap only ever falls on a separator */}
+            <span className="whitespace-nowrap">{shortAmount(quote.amountInFormatted)} {token.symbol}</span>
+            {" · "}
+            <span className="whitespace-nowrap">{gets} ≈ {receiveOutShort} {props.receive.symbol}</span>
+            {" · "}
+            <span className="whitespace-nowrap">{eta}</span>
           </p>
         ) : error && quotable ? (
           <p className="text-danger">{error}</p>
@@ -601,4 +607,13 @@ export function formatUnits(v: bigint, decimals: number, maxFrac = 6): string {
   const whole = v / base;
   const frac = (v % base).toString().padStart(decimals, "0").slice(0, maxFrac).replace(/0+$/, "");
   return frac ? `${whole}.${frac}` : whole.toString();
+}
+
+/** "10.004562" → "10.0045": the same six significant digits as amountText, for amounts that arrive formatted. */
+function shortAmount(formatted: string): string {
+  const [whole = "0", frac = ""] = formatted.replace(/,/g, "").split(".");
+  const w = whole.replace(/^0+(?=\d)/, "");
+  const keep = w !== "0" ? Math.max(0, 6 - w.length) : 6 + (frac.length - frac.replace(/^0+/, "").length);
+  const f = frac.slice(0, keep).replace(/0+$/, "");
+  return `${BigInt(w).toLocaleString("en-US")}${f ? `.${f}` : ""}`;
 }

@@ -170,12 +170,12 @@ export function PayWithSheet({
 }
 
 /** A balance for a list: up to 6 significant digits, never in exponent form. */
-export function amountText(amount: string, decimals: number): string {
+export function amountText(amount: string, decimals: number, significant = 6): string {
   const v = BigInt(amount);
   const base = 10n ** BigInt(decimals);
   const whole = v / base;
   const digits = whole.toString().length;
-  const frac = Math.max(0, Math.min(decimals, whole > 0n ? 6 - digits : 6 + leadingZeros(v % base, decimals)));
+  const frac = Math.max(0, Math.min(decimals, whole > 0n ? significant - digits : significant + leadingZeros(v % base, decimals)));
   const f = (v % base).toString().padStart(decimals, "0").slice(0, frac).replace(/0+$/, "");
   return `${whole.toLocaleString("en-US")}${f ? `.${f}` : ""}`;
 }
