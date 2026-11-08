@@ -18,17 +18,27 @@ export const NETWORK_NAMES: Record<string, string> = {
 
 const hasCover = (j: StudioJar, p: JarPageData) => !!(p.cover || j.image_url);
 
-/** A jar is ready to share once it has a cover and a story. */
-export const incomplete = (j: StudioJar, p: JarPageData) => j.status === "Open" && (!hasCover(j, p) || !j.description.trim());
-
-/** What "ready to share" is made of; the contract already guarantees a name and a payout asset. */
-function setupSteps(j: StudioJar, p: JarPageData) {
+/**
+ * What a jar's page could still gain. Every jar in the studio is already published (the contract
+ * holds its name and payout), so these are suggestions, never a to-do that blocks sharing.
+ */
+function pageTips(j: StudioJar, p: JarPageData) {
+  if (j.status !== "Open") return [];
   return [
-    { label: "Name your jar", done: !!j.title.trim() },
-    { label: j.payout ? `Payouts to the ${daoLabel(j.payout)} treasury` : "Payouts to near.com", done: !!j.receive_asset },
     { label: "Add a cover image", done: hasCover(j, p), action: "Add" },
     { label: "Write a short story", done: !!j.description.trim(), action: "Write" },
-  ];
+  ].filter((t) => !t.done);
+}
+
+/** An open jar whose page has no cover or no story yet. */
+const plainPage = (j: StudioJar, p: JarPageData) => pageTips(j, p).length > 0;
+
+/** Where the studio's total ends up: near.com, the jars' DAO treasuries, or both. */
+function landsIn(jars: StudioJar[]): string {
+  const daos = [...new Set(jars.map((j) => j.payout).filter((d): d is string => !!d))];
+  if (daos.length === 0) return "Lands in your near.com balance";
+  if (jars.some((j) => !j.payout)) return "Lands in near.com and DAO treasuries";
+  return daos.length === 1 ? `Lands in the ${daoLabel(daos[0]!)} treasury` : "Lands in your jars' DAO treasuries";
 }
 
 const DAY = 86_400_000;
@@ -86,7 +96,7 @@ export function Overview({
   const span = Math.max(0, ...Object.values(activity?.jars ?? {}).map((a) => a.daily.length));
   const daily = Array.from({ length: span }, (_, i) => Object.values(activity?.jars ?? {}).reduce((s, a) => s + (a.daily[i] ?? 0), 0));
   const week = daily.slice(-7).reduce((s, v) => s + v, 0) / 100;
-  const todo = jars.find((j) => incomplete(j, pageOf(j.id)));
+  const tip = jars.find((j) => plainPage(j, pageOf(j.id)));
   const mask = (v: string) => (hidden ? "••••" : v);
   const chainOf = (c: string) => catalog.chains.find((x) => x.chain === c);
   const today = loaded ? countSince(recent, DAY) : null;
@@ -104,7 +114,7 @@ export function Overview({
         </div>
         <div className="flex flex-wrap gap-2">
           {jars.length > 0 && (
-            <button type="button" onClick={() => share((jars.find((j) => j.status === "Open" && !incomplete(j, pageOf(j.id))) ?? jars.find((j) => j.status === "Open") ?? jars[0]!).id)}
+            <button type="button" onClick={() => share((jars.find((j) => j.status === "Open" && !plainPage(j, pageOf(j.id))) ??jars.find((j) => j.status === "Open") ?? jars[0]!).id)}
               className="btn-tactile px-5 py-2.5 text-sm font-medium">
               Share a jar
             </button>
@@ -139,7 +149,7 @@ export function Overview({
               ) : (
                 <span role="status" aria-label="Loading totals" className="block h-11 w-36 animate-pulse rounded-lg bg-accent-ink/15" />
               )}
-              <p className="text-sm">Lands in your near.com balance</p>
+              <p className="text-sm">{landsIn(jars)}</p>
             </div>
 
             <Kpi label="This week" loaded={loaded} value={mask(money(week))}
@@ -188,7 +198,7 @@ export function Overview({
 
           <section className="flex flex-wrap gap-4">
             <RaisedChart loaded={loaded} daily={daily} hidden={hidden} />
-            {todo && <SetupCard jar={todo} page={pageOf(todo.id)} onEdit={() => edit(todo.id)} />}
+            {tip && <PageTipsCard jar={tip} page={pageOf(tip.id)} onEdit={() => edit(tip.id)} />}
           </section>
 
           <section className="flex flex-col gap-3">
@@ -387,45 +397,25 @@ function RaisedChart({ loaded, daily, hidden }: { loaded: boolean; daily: number
   );
 }
 
-/** The first jar that isn't ready to share, as a checklist of what's left. */
-function SetupCard({ jar, page, onEdit }: { jar: StudioJar; page: JarPageData; onEdit: () => void }) {
-  const steps = setupSteps(jar, page);
-  const done = steps.filter((s) => s.done).length;
-  const next = steps.find((s) => !s.done);
-  const C = 2 * Math.PI * 20;
+/** The first live jar whose page could gain a cover or a story: an optional nudge, the jar is already public. */
+function PageTipsCard({ jar, page, onEdit }: { jar: StudioJar; page: JarPageData; onEdit: () => void }) {
   return (
-    <div className="flex min-w-0 flex-[1_1_280px] flex-col gap-3.5 rounded-3xl border border-amber-400/35 bg-surface p-5 sm:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-amber-300">Finish setup</p>
-          <h2 className="mt-0.5 text-lg font-semibold">“{jar.title}” isn&apos;t ready to share</h2>
-        </div>
-        <svg width="48" height="48" viewBox="0 0 48 48" role="img" aria-label={`${done} of ${steps.length} steps done`} className="shrink-0">
-          <circle cx="24" cy="24" r="20" fill="none" className="stroke-line" strokeWidth="5" />
-          <circle cx="24" cy="24" r="20" fill="none" className="stroke-amber-400" strokeWidth="5" strokeLinecap="round"
-            strokeDasharray={`${(done / steps.length) * C} ${C}`} transform="rotate(-90 24 24)" />
-          <text x="24" y="28.5" textAnchor="middle" fontSize="13" fontWeight="600" className="fill-text">{done}/{steps.length}</text>
-        </svg>
+    <div className="flex min-w-0 flex-[1_1_280px] flex-col gap-3.5 rounded-3xl bg-surface p-5 sm:p-6">
+      <div className="min-w-0">
+        <p className="flex items-center gap-1.5 text-sm text-muted"><span className="size-[7px] rounded-full bg-accent" />Live · accepting donations</p>
+        <h2 className="mt-0.5 text-lg font-semibold">Make “{jar.title}” stand out</h2>
       </div>
+      <p className="text-sm text-muted">Pages with a cover and a story get more donations.</p>
       <ul className="flex flex-col">
-        {steps.map((s) => (
-          <li key={s.label} className={`flex items-center gap-3 py-2 ${s.done ? "text-muted" : ""}`}>
-            {s.done ? (
-              <span className="grid size-[22px] shrink-0 place-items-center rounded-full bg-accent text-accent-ink">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" aria-hidden><path d="m5 12 5 5 9-10" /></svg>
-              </span>
-            ) : (
-              <span className={`size-[22px] shrink-0 rounded-full border-2 ${s === next ? "border-amber-400" : "border-line"}`} />
-            )}
-            <span className={`flex-1 ${s.done ? "line-through" : ""}`}>{s.label}</span>
-            {!s.done && s.action && (
-              <button type="button" onClick={onEdit} aria-label={s.label} className={`text-sm ${s === next ? "text-amber-300" : "text-muted"} hover:underline`}>{s.action}</button>
-            )}
+        {pageTips(jar, page).map((t) => (
+          <li key={t.label} className="flex items-center gap-3 py-2">
+            <span className="size-[22px] shrink-0 rounded-full border-2 border-line" />
+            <span className="flex-1">{t.label}</span>
+            <button type="button" onClick={onEdit} aria-label={t.label} className="text-sm text-accent hover:underline">{t.action}</button>
           </li>
         ))}
       </ul>
-      <p className="text-sm text-muted">Pages with a cover and a story get more donations.</p>
-      <button type="button" onClick={onEdit} className="mt-auto h-11 rounded-[14px] bg-amber-300 font-semibold text-bg shadow-[inset_0_-3px_0_rgb(0_0_0/0.2)] transition-transform active:translate-y-0.5">Finish setup</button>
+      <button type="button" onClick={onEdit} className="btn-tactile mt-auto h-11 justify-center font-medium">Edit page</button>
     </div>
   );
 }
@@ -442,12 +432,8 @@ function JarCard({ jar, page, mask, onOpen, onEdit, onShare }: {
   const goal = jar.goal_usd_cents ? Number(jar.goal_usd_cents) / 100 : null;
   const pct = goal ? (r / goal) * 100 : 0;
   const open = jar.status === "Open";
-  const setup = incomplete(jar, page);
-  const steps = setupSteps(jar, page);
   const badge = !open ? (
     <span className="rounded-full bg-black/60 px-2.5 py-1 text-xs text-muted">Closed</span>
-  ) : setup ? (
-    <span className="rounded-full bg-amber-400/15 px-2.5 py-1 text-xs font-medium text-amber-300">Setup · {steps.filter((s) => s.done).length}/{steps.length}</span>
   ) : (
     <span className="flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs"><span className="size-[7px] rounded-full bg-accent" />Live</span>
   );
@@ -469,7 +455,7 @@ function JarCard({ jar, page, mask, onOpen, onEdit, onShare }: {
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5-9 8" />
           </svg>
-          <span className="font-medium text-amber-300">Add a cover</span>
+          <span className="font-medium">Add a cover</span>
           <span className="absolute left-2.5 top-2.5">{badge}</span>
           {dao}
         </button>
@@ -503,8 +489,6 @@ function JarCard({ jar, page, mask, onOpen, onEdit, onShare }: {
           <button type="button" onClick={onShare} className={btn}>Share</button>
           {!open ? (
             <button type="button" onClick={onOpen} className={btn}>Details</button>
-          ) : setup ? (
-            <button type="button" onClick={onEdit} className="h-10 flex-1 rounded-[14px] bg-amber-300 text-sm font-semibold text-bg shadow-[inset_0_-3px_0_rgb(0_0_0/0.2)] transition-transform active:translate-y-0.5">Finish setup</button>
           ) : (
             <button type="button" onClick={onEdit} className={btn}>Edit</button>
           )}

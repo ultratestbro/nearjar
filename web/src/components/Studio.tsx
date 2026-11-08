@@ -9,7 +9,7 @@ import { DaoEndorse } from "./Dao";
 import { JarCover } from "./JarArt";
 import { JarEditor, type AssetWithIcon, type StudioJar } from "./JarEditor";
 import { ShareModal } from "./ShareModal";
-import { NETWORK_NAMES, Overview, incomplete, type Activity, type Recent } from "./StudioHome";
+import { NETWORK_NAMES, Overview, type Activity, type Recent } from "./StudioHome";
 import { Chevron, Icon, ListCard, Panel, Pill, PillTabs, Progress, Skeleton, ago, money, shortAccount } from "./ui";
 import { ConnectPanel } from "./WalletMenu";
 import { useWallet } from "./WalletProvider";
@@ -89,10 +89,7 @@ export function Studio({ assets, catalog = { chains: [], tokens: {} }, startNew 
         ))}
       {jars.map((j) => (
         <SideItem key={j.id} active={view.kind !== "home" && view.id === j.id} onClick={() => setView({ kind: "jar", id: j.id })}>
-          <span className="relative">
-            <JarCover page={pageOf(j.id)} legacyImage={j.image_url} mark={false} className="size-7 rounded-lg" />
-            {incomplete(j, pageOf(j.id)) && <span aria-label="not ready" className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-400 ring-2 ring-bg" />}
-          </span>
+          <JarCover page={pageOf(j.id)} legacyImage={j.image_url} mark={false} className="size-7 rounded-lg" />
           <span className="truncate">{j.title}</span>
         </SideItem>
       ))}

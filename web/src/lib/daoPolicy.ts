@@ -238,6 +238,13 @@ export function spendText(g: Governance): string {
   return of === 1 ? `Spending needs the one member of “${role}”` : `Spending needs ${approvals} of the ${of} members of “${role}”`;
 }
 
+/** "Spending: 3 of 9 approvals", the jar page's one-line form of spendText (the full sentence goes in its tooltip). */
+export function spendShort(g: Governance): string {
+  if (!g.spend) return "No spending rule";
+  const { approvals, of } = g.spend;
+  return of === 1 ? "Spending: 1 approval" : `Spending: ${approvals} of ${of} approvals`;
+}
+
 // ---------- the DAO's calls to NearJar ----------
 
 /** Gas both DAO calls attach: they only flip a flag, 30 Tgas is plenty. */

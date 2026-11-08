@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { addProposalArgs, DAO_CALL_GAS as GAS, daoLabel, soloText, spendText, trezuTemplate, trezuUrl, type Governance } from "@/lib/daoPolicy";
+import { addProposalArgs, DAO_CALL_GAS as GAS, daoLabel, soloText, spendShort, spendText, trezuTemplate, trezuUrl, type Governance } from "@/lib/daoPolicy";
 import { ListCard } from "./ui";
 
 /** A treasury building: marks a jar that pays a DAO instead of a person. */
@@ -32,14 +32,29 @@ export function CopyButton({ value, label = "Copy", className = "px-3 py-1 text-
   );
 }
 
-/** "9 members · Spending needs 3 of the 9 members of “council”", or the warning when one can act alone. */
+/**
+ * "9 members · Spending: 3 of 9 approvals", quiet and kept whole when the line wraps; the full rule
+ * and any one-member warning sit in the tooltip. Only a key that spends without a proposal is loud:
+ * it stops donations.
+ */
 export function GovernanceText({ governance, intentsKeys }: { governance: Governance; intentsKeys: number }) {
-  const solo = intentsKeys > 0 ? "A key on NEAR Intents can spend this treasury without a proposal" : soloText(governance);
+  if (intentsKeys > 0) {
+    return (
+      <span className="whitespace-nowrap text-amber-300" title="A key on NEAR Intents can spend this treasury without a proposal, so NearJar doesn't send donations to it">
+        Donations paused
+      </span>
+    );
+  }
   const members = `${governance.members} member${governance.members === 1 ? "" : "s"}`;
+  const extra = governance.solo === "rules" ? "Rules: 1 approval" : governance.solo === "unsized" ? "Token-weighted votes" : null;
   return (
-    <span className={solo ? "text-amber-300" : "text-muted"}>
-      {members} · {spendText(governance)}
-      {solo && ` · ${solo}`}
+    <span className="text-muted" title={[members, spendText(governance), soloText(governance)].filter(Boolean).join(" · ")}>
+      <span className="whitespace-nowrap">{members}</span> · <span className="whitespace-nowrap">{spendShort(governance)}</span>
+      {extra && (
+        <>
+          {" "}· <span className="whitespace-nowrap">{extra}</span>
+        </>
+      )}
     </span>
   );
 }
@@ -72,9 +87,9 @@ export function DaoPayoutLine({
         <span className="min-w-0 truncate font-mono text-xs text-muted">{dao}</span>
       </span>
       <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        {endorsed ? <span className="text-accent">Endorsed by the DAO ✓</span> : <span className="text-amber-300">Not endorsed by the DAO yet</span>}
+        {endorsed ? <span className="whitespace-nowrap text-accent">Endorsed by the DAO ✓</span> : <span className="whitespace-nowrap text-amber-300">Not endorsed by the DAO yet</span>}
         {governance && intentsKeys !== null && <GovernanceText governance={governance} intentsKeys={intentsKeys} />}
-        <a href={trezuUrl(dao)} target="_blank" rel="noreferrer" className="text-muted underline decoration-line underline-offset-4 hover:text-text">
+        <a href={trezuUrl(dao)} target="_blank" rel="noreferrer" className="whitespace-nowrap text-muted underline decoration-line underline-offset-4 hover:text-text">
           View in Trezu ↗
         </a>
       </span>

@@ -12,6 +12,7 @@ import {
   parseDaoId,
   parsePolicy,
   soloText,
+  spendShort,
   spendText,
   trezuTemplate,
   trezuUrl,
@@ -229,6 +230,9 @@ describe("governance: who can move a DAO treasury", () => {
     expect(spendText(governance(AGENTIC))).toBe("Spending needs the one member of “Approver”");
     expect(soloText(governance(SHITZU))).toBeNull();
     expect(soloText(governance(WASM))).toBe("One member can approve spending alone");
+    expect(spendShort(governance(SHITZU))).toBe("Spending: 3 of 9 approvals");
+    expect(spendShort(governance(AGENTIC))).toBe("Spending: 1 approval");
+    expect(spendShort(governance(WASM))).toBe("Spending: 1 of 2 approvals");
   });
 
   it("one member who can rewrite the policy alone counts as acting alone", () => {
