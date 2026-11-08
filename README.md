@@ -147,6 +147,7 @@ Hackathon rules allow pre-existing libraries and AI-written code if they are lis
 - **Any Wallet Kit** (`@anywalletkit/*` on npm, https://anywallet.tech), an open wallet SDK by the same author, predates the hackathon and is used as a library: `core` 0.8.0, `protocol-swap2-core` 0.10.0, `protocol-swap2-near-intents` 0.3.0, `swap2-assets` 0.2.2, `wallet-solana` 0.6.0. During the window the author added `recipientType: "INTENTS" | "CONFIDENTIAL_INTENTS"` to `protocol-swap2-near-intents` (released in 0.3.0) so donations can be credited to an intents.near account.
 - **Third-party:** `defuse-core` from near/intents (pinned commit) for signature verification, near-sdk, Next.js, React, Tailwind, Reown AppKit with wagmi/viem, NEAR Wallet Selector, TON Connect, `@solana/kit` and `@solana/web3.js`, sats-connect, near-api-js, libSQL/Turso.
 - **AI assistance:** built with Claude Code as a pair programmer; commits it co-wrote carry a `Co-Authored-By: Claude` trailer.
+- **Other hackathon project by the same author: [NearAnyStake](https://nearanystake.vercel.app)** ([github.com/ultratestbro/nearanystake](https://github.com/ultratestbro/nearanystake)), stake NEAR from any chain through NEAR Intents. The two projects are independent and submitted separately; NearAnyStake reuses some of NearJar's wallet and UI code.
 
 ## License
 
