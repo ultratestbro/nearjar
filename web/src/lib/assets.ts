@@ -26,14 +26,8 @@ export interface SourceAsset {
   icon: string;
 }
 
-/**
- * Catalog networks 1Click won't take a donation from (checked 2026-11-09): Gnosis answers "Quoting for
- * this pair is not available", Stellar needs a memo deposit the SDK's provider doesn't request.
- */
-const NO_ROUTE = new Set(["eip155:100", "stellar:pubnet"]);
-
-/** Every chain/token a donor can pay with: the SDK catalog entries 1Click lists and quotes. */
-export const SOURCE_ASSETS: SourceAsset[] = CC_SOURCE_CHAINS.filter((c) => !NO_ROUTE.has(c.caip2)).flatMap((c) =>
+/** Every chain/token a donor can pay with: the SDK catalog entries 1Click lists. */
+export const SOURCE_ASSETS: SourceAsset[] = CC_SOURCE_CHAINS.flatMap((c) =>
   c.assets
     .filter((a) => a.assetId)
     .map((a) => ({

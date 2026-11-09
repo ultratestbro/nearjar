@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SOURCE_ASSETS, sourceAsset } from "./assets";
+import { sourceAsset } from "./assets";
 import { clearDaoCache } from "./dao";
 import type { Jar } from "./jars";
 import { payoutAccount, payoutOf, quoteDonation } from "./quote";
@@ -166,13 +166,5 @@ describe("quoteDonation", () => {
     expect(quotes[0]).toMatchObject({ recipient: DAO, recipientType: "INTENTS" });
     const call = fetchMock.mock.calls.find(([u]) => String(u).endsWith("/quote"))!;
     expect(JSON.stringify(call[1]?.headers)).toContain("test-jwt");
-  });
-});
-
-describe("SOURCE_ASSETS", () => {
-  it("leaves out the networks 1Click won't quote", () => {
-    expect(sourceAsset("eip155:100", "USDC")).toBeUndefined();
-    expect(sourceAsset("stellar:pubnet", "USDC")).toBeUndefined();
-    expect(new Set(SOURCE_ASSETS.map((a) => a.chain)).size).toBe(24);
   });
 });
