@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { sourceAsset } from "./assets";
+import { SOURCE_ASSETS, sourceAsset } from "./assets";
 import { clearDaoCache } from "./dao";
 import type { Jar } from "./jars";
 import { payoutAccount, payoutOf, quoteDonation } from "./quote";
 
 const SOL_USDC = sourceAsset("solana:mainnet", "USDC")!;
+const SUI_USDC = sourceAsset("sui:mainnet", "USDC")!;
 vi.mock("./prices", async (orig) => ({
   ...(await orig<typeof import("./prices")>()),
-  tokenPrices: async () => new Map([[SOL_USDC.assetId, { assetId: SOL_USDC.assetId, decimals: 6, symbol: "USDC", price: 1 }]]),
+  tokenPrices: async () => new Map([SOL_USDC, SUI_USDC].map((a) => [a.assetId, { assetId: a.assetId, decimals: 6, symbol: "USDC", price: 1 }])),
 }));
 
 const DAO = "shitzu.sputnik-dao.near";
@@ -135,6 +136,27 @@ describe("quoteDonation", () => {
     expect(quotes).toHaveLength(0);
   });
 
+  it("a dry quote from a chain without an SDK refund placeholder sends one 1Click accepts", async () => {
+    const { quotes } = fakeNetwork();
+    const r = await quoteDonation({ jar: jar(null), usdCents: 500, sourceChain: "sui:mainnet", sourceSymbol: "USDC", dry: true });
+    expect(r.ok).toBe(true);
+    expect(quotes[0]).toMatchObject({ refundTo: "0x0000000000000000000000000000000000000000000000000000000000000002", dry: true });
+  });
+
+  it("the donor's own refund address wins over the placeholder", async () => {
+    const { quotes } = fakeNetwork();
+    const refundAddress = "0x1f9840a85d5af5bf1d1762f925bdaddc4201f9841f9840a85d5af5bf1d1762f9";
+    await quoteDonation({ jar: jar(null), usdCents: 500, sourceChain: "sui:mainnet", sourceSymbol: "USDC", refundAddress, dry: true });
+    expect(quotes[0]).toMatchObject({ refundTo: refundAddress });
+  });
+
+  it("a real quote never gets a placeholder refund", async () => {
+    const { quotes } = fakeNetwork();
+    const r = await quoteDonation({ jar: jar(null), usdCents: 500, sourceChain: "sui:mainnet", sourceSymbol: "USDC", dry: false });
+    expect(r).toEqual({ ok: false, error: "A refund address is required." });
+    expect(quotes).toHaveLength(0);
+  });
+
   it("with a partner JWT a DAO quote still asks for INTENTS", async () => {
     vi.stubEnv("ONE_CLICK_JWT", "test-jwt");
     vi.resetModules();
@@ -144,5 +166,13 @@ describe("quoteDonation", () => {
     expect(quotes[0]).toMatchObject({ recipient: DAO, recipientType: "INTENTS" });
     const call = fetchMock.mock.calls.find(([u]) => String(u).endsWith("/quote"))!;
     expect(JSON.stringify(call[1]?.headers)).toContain("test-jwt");
+  });
+});
+
+describe("SOURCE_ASSETS", () => {
+  it("leaves out the networks 1Click won't quote", () => {
+    expect(sourceAsset("eip155:100", "USDC")).toBeUndefined();
+    expect(sourceAsset("stellar:pubnet", "USDC")).toBeUndefined();
+    expect(new Set(SOURCE_ASSETS.map((a) => a.chain)).size).toBe(24);
   });
 });

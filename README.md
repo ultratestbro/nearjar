@@ -2,7 +2,7 @@
 
 **Donation jars for near.com accounts, payable from any chain.**
 
-A near.com user creates a jar and shares a link. Donors pay from the wallet and chain they already use (EVM chains, Solana, TON, Tron, Bitcoin, NEAR, Zcash and more, 26 networks in all) or send from an exchange. NEAR Intents delivers every donation straight into the creator's near.com balance, in the asset the creator picked (USDC by default). The creator signs one message to create a jar: no gas, no new account.
+A near.com user creates a jar and shares a link. Donors pay from 24 networks (EVM chains, Solana, TON, Tron, Bitcoin, NEAR, Zcash, XRP, Sui and more): with the wallet they already use on EVM, Solana, TON, Tron, NEAR or Bitcoin, or to a one-time deposit address from any wallet or exchange. NEAR Intents delivers every donation straight into the creator's near.com balance, in the asset the creator picked (USDC by default). The creator signs one message to create a jar: no gas, no new account.
 
 - **Live:** https://nearjar.xyz (NEAR mainnet)
 - **Contract:** [`nearjar.near`](https://nearblocks.io/address/nearjar.near) · relayer [`relayer.nearjar.near`](https://nearblocks.io/address/relayer.nearjar.near)
@@ -91,7 +91,7 @@ curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' \
 
 ## Donate for real (optional)
 
-On any jar page: pick an amount and a token, press **Donate**, then either connect a wallet and approve one transaction (EVM, Solana, TON, Tron, NEAR, Bitcoin) or send to a one-time deposit address from any of the 26 networks or an exchange. Minimum $1. The status screen follows the donation leg by leg. Once NEAR Intents delivers it, the relayer writes a receipt to the contract and the jar total updates.
+On any jar page: pick an amount and a token, press **Donate**, then either connect a wallet and approve one transaction (EVM, Solana, TON, Tron, NEAR, Bitcoin) or send to a one-time deposit address from any of the 24 networks or an exchange. Minimum $1. The status screen follows the donation leg by leg. Once NEAR Intents delivers it, the relayer writes a receipt to the contract and the jar total updates.
 
 The receipt is written on the next status check after delivery: the status screen polls every 5 s, `/d/<id>` checks when it loads, and a jar page, when it loads, rechecks that jar's open donations from the last two days. There is no cron job. Until one of those pages is opened, a delivered donation is already in the creator's balance but not yet in the jar total.
 
@@ -210,7 +210,7 @@ Full flow and decisions: [docs/FLOW.md](docs/FLOW.md) · contract details: [cont
 
 ### Where NEAR is used
 
-- **NEAR Intents (1Click)** quotes and settles every donation from 26 networks into one near.com balance.
+- **NEAR Intents (1Click)** quotes and settles every donation from 24 networks into one near.com balance.
 - **`intents.near`** is the source of truth for who owns a near.com account.
 - **`nearjar.near`** (Rust, near-sdk) stores jars (with their DAO payout and endorsement), used signature nonces and delivered-donation receipts.
 - **Sputnik DAO and Trezu**: DAO jars pay a `*.sputnik-dao.near` treasury; its `get_policy` decides who may create one, and its FunctionCall proposals endorse or close it.

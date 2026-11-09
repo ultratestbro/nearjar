@@ -66,6 +66,21 @@ export interface DonationQuote {
 
 export type QuoteResult = { ok: true; quote: DonationQuote } | { ok: false; error: string };
 
+/**
+ * A dry quote still needs a refund address 1Click accepts for the source chain. The SDK fills one in
+ * for EVM, Bitcoin, Zcash, TON, Solana, Tron and NEAR, and an EVM one for anything else, which 1Click
+ * refuses. These cover the rest: zero-hash addresses with valid checksums, never sent to a deposit.
+ */
+const DRY_REFUND: Record<string, string> = {
+  litecoin: "ltc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqp9ysmq",
+  doge: "D596YFweJQuHY1BbjazZYmAbt8jJPbKehC",
+  xrp: "rrrrrrrrrrrrrrrrrrrrrhoLvTp",
+  bch: "bitcoincash:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqfnhks603",
+  cardano: "addr1vyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkdl5mw",
+  aptos: "0x0000000000000000000000000000000000000000000000000000000000000001",
+  sui: "0x0000000000000000000000000000000000000000000000000000000000000002",
+};
+
 export async function quoteDonation(input: {
   jar: Jar;
   usdCents: number;
@@ -99,6 +114,7 @@ export async function quoteDonation(input: {
   if (!price) return { ok: false, error: `No price for ${src.symbol} right now.` };
   const amountIn = usdToUnits(usdCents, price, src.decimals);
 
+  const refundAddress = input.refundAddress ?? (input.dry ? DRY_REFUND[src.chain.split(":")[0]] : undefined);
   let refusal = "";
   const q = await (payout.dao ? toDaoTreasury : toNearCom).getQuote({
     sourceChain: src.chain,
@@ -107,7 +123,7 @@ export async function quoteDonation(input: {
     destToken: jar.receive_asset,
     destAddress: recipient,
     amountIn: amountIn.toString(),
-    ...(input.refundAddress ? { refundAddress: input.refundAddress } : {}),
+    ...(refundAddress ? { refundAddress } : {}),
     dry: input.dry,
     onRefusal: (r: string) => {
       refusal = r;
