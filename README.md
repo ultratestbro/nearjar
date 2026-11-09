@@ -155,12 +155,13 @@ Prerequisites:
 - pnpm 10: `corepack enable` picks the version in `web/package.json` (`packageManager`, pnpm 10.30.2).
 - For the contract: rustup (`contract/rust-toolchain.toml` pins Rust 1.97.1 with the `wasm32-unknown-unknown` target; rustup installs it on the first `cargo` call) and cargo-near ≥ 0.22 for the wasm build.
 
+Every command block below starts from the repository root; the `( … )` subshells leave the shell there.
+
 No secrets are needed to run the site and get live quotes:
 
 ```sh
-cd web
-pnpm install --frozen-lockfile
-NEARJAR_DEMO_OWNER=0x63428e70a8016d10e8e2f7da440c898063afa299 pnpm dev   # http://localhost:3000
+(cd web && pnpm install --frozen-lockfile)
+(cd web && NEARJAR_DEMO_OWNER=0x63428e70a8016d10e8e2f7da440c898063afa299 pnpm dev)   # http://localhost:3000
 ```
 
 pnpm prints an *Ignored build scripts* warning (for example for `@reown/appkit`). It is expected; nothing needs to be approved.
@@ -181,15 +182,14 @@ What needs configuration (copy [`web/.env.example`](web/.env.example) to `web/.e
 Web checks (vitest unit tests cover the DAO checks, signed-message parsing and payout routing):
 
 ```sh
-cd web && pnpm test && pnpm lint && pnpm build
+(cd web && pnpm test && pnpm lint && pnpm build)
 ```
 
 Contract:
 
 ```sh
-cd contract
-cargo test                                         # real ed25519 / secp256k1 signatures, DAO payout rules
-cargo near build non-reproducible-wasm --no-abi    # → target/near/nearjar.wasm
+(cd contract && cargo test)                                         # real ed25519 / secp256k1 signatures, DAO payout rules
+(cd contract && cargo near build non-reproducible-wasm --no-abi)    # → contract/target/near/nearjar.wasm
 ```
 
 ## How it works

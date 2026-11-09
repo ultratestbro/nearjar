@@ -85,6 +85,8 @@ Every `update_jar` increments `revision` and sets `endorsed = false` (event `jar
 
 ## Build and test
 
+From `contract/`:
+
 ```sh
 cargo test                                   # unit tests (signatures are real ed25519 / secp256k1)
 cargo near build non-reproducible-wasm --no-abi   # sets --cfg=near (host-function crypto), runs wasm-opt → target/near/nearjar.wasm
