@@ -7,6 +7,7 @@ A near.com user creates a jar and shares a link. Donors pay from the wallet and 
 - **Live:** https://nearjar.xyz (NEAR mainnet)
 - **Contract:** [`nearjar.near`](https://nearblocks.io/address/nearjar.near) · relayer [`relayer.nearjar.near`](https://nearblocks.io/address/relayer.nearjar.near)
 - **Built at the [NEAR Hackathon](https://nearhackathon.com)** (Nov 2026) · tracks: Real-World Money, Social Money, Open Innovation
+- **Demo post with video:** https://x.com/0xdanya_xo/status/2119822989596180955
 
 > NearJar is an independent concept, not an official near.com product. It is designed as a feature near.com could embed.
 
