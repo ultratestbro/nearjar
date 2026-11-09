@@ -10,22 +10,6 @@ A near.com user creates a jar and shares a link. Donors pay from the wallet and 
 
 > NearJar is an independent concept, not an official near.com product. It is designed as a feature near.com could embed.
 
-nearblocks.io answers scripted requests with a Cloudflare 403. The same facts over NEAR RPC (needs `curl` and `jq`):
-
-```sh
-# the deployed code: GxM9VeG6KT2uBAygcWP1mTRPVDDL9UpEZzFXBY1H6KzW, the bs58 SHA-256 that `cargo near build` prints for contract/ (0.2.0)
-curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_account","finality":"final","account_id":"nearjar.near"}}' \
-  | jq -r .result.code_hash
-
-# the relayer's keys
-curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_access_key_list","finality":"final","account_id":"relayer.nearjar.near"}}' \
-  | jq -c '.result.keys[].access_key.permission'
-```
-
-→ `{"FunctionCall":{"allowance":null,"method_names":["submit","record_donation"],"receiver_id":"nearjar.near"}}` is the key the server holds. The other key, `"FullAccess"`, stays with the operator and is not on the server.
-
 ## The problem
 
 A near.com account has an internal address (`nearcom:0x…`) that only works between near.com users. near.com warns: *"Your funds will be lost if you send to this address on any blockchain."* So a creator who lives in near.com has no simple way to take money from a supporter holding USDT on Tron, SOL or BTC.
@@ -35,26 +19,31 @@ NearJar turns that account into a payment link that works from any chain.
 ## Try it in 2 minutes (no wallet, no money)
 
 1. Open https://nearjar.xyz → the hero shows every network donors can pay from, with coins dropping into the jar.
-2. Open https://nearjar.xyz/j/support → a jar page: cover, goal, supporters and a donate card.
-3. In the donate card type `5`, press **Pay with**, pick **Solana** in the network list, then **USDC** → above the **Donate $5** button a live NEAR Intents quote appears: `<amount> USDC · creator gets ≈ <amount> USDC · ~<n> min`. It is a *dry* quote: no deposit address is created and nothing is charged.
+2. Open https://nearjar.xyz/j/support-nearjar → the developer's own jar (jar `"3"` on the contract): cover, goal, supporters and a donate card.
+3. In the donate card press the **$5** amount button (the field starts at $10), press **Pay with**, pick **Solana** in the network list, then **USDC** → above the **Donate $5** button a live NEAR Intents quote appears: `<amount> USDC · creator gets ≈ <amount> USDC · ~<n> min`. It is a *dry* quote: no deposit address is created and nothing is charged.
 4. Press **Donate $5** → *Review · $5* shows the route (USDC on Solana → NEAR Intents → USDC on near.com), then *You send*, *Creator gets*, *Route fee* (*NEAR Intents · NearJar takes nothing*: the quote's USD in minus USD out, 1Click's own fee included), *Arrives* and *Lands in* (*Confidential balance*), and a **Connect a Solana wallet** button. Stop here unless you want to really donate.
 5. The same quote from a terminal:
    ```sh
    curl -s -X POST https://nearjar.xyz/api/quote -H 'content-type: application/json' \
-     -d '{"jarId":"demo","usdCents":500,"sourceChain":"solana:mainnet","sourceSymbol":"USDC"}'
+     -d '{"jarId":"3","usdCents":500,"sourceChain":"solana:mainnet","sourceSymbol":"USDC"}'
    ```
    → `{"ok":true,"quote":{"dry":true,"amountIn":"…","amountInFormatted":"5.00…","amountOut":"…",…,"etaSeconds":…,"depositAddress":"",…}}`
 
-`/j/support` is the developer's own jar: donations to it really reach the NearJar developer's near.com account. It is not stored in `nearjar.near`. The web app serves it from `NEARJAR_DEMO_OWNER` under the id `demo` (the `jarId` in the curl above) and counts its total from the delivered donations in its database. `/api/quote` takes a numeric jar id (`"2"`) or `demo`, not a short link.
+   `/api/quote` takes the numeric jar id, not the short link.
+6. Open https://nearjar.xyz/j/nearjar-dao → a DAO jar: *Donations go to the nearjar-demo treasury* with **View in Trezu ↗**, `2 members · Spending: 1 approval` (hover for the full rule) and *Endorsed by the DAO ✓*. In its donate review, *Lands in* names the treasury (NEAR Intents). See [DAO jars](#dao-jars-social-money-track).
 
-The jars stored on chain on 2026-11-09:
+Donations to `/j/support-nearjar` really reach the NearJar developer's near.com account. The earlier links `/j/support` and `/j/demo` open it too.
+
+## On chain
+
+Every jar lives in `nearjar.near`. The commands below need `curl` and `jq`; if `free.rpc.fastnear.com` answers 429 (rate limit), use `https://rpc.mainnet.near.org`. The jars on 2026-11-09:
 
 | Jar | Link | Status |
 |---|---|---|
-| `"0"` | `smoke-020-b` | Closed: the 0.2.0 release check |
+| `"0"` | `/j/smoke-020-b` | Closed: the 0.2.0 release check |
 | `"1"` | `/j/nearjar-dao` | Open; pays the DAO `nearjar-demo.sputnik-dao.near`, *Endorsed by the DAO ✓* |
-| `"2"` | `/j/masya` | Open |
-| `"3"` | `/j/support-nearjar` | Open; *Support the NearJar*, created on 2026-11-09 by the near.com account `/j/support` pays (`0x6342…a299`). It is a separate jar: the contract keeps its total, which is not added to `/j/support`'s |
+| `"2"` | `/j/masya` | Open; the jar made in the demo video |
+| `"3"` | `/j/support-nearjar` | Open; the developer's own jar, *Support the NearJar* |
 
 List them (`args_base64` is `{"from":"0","limit":100}`):
 
@@ -74,14 +63,30 @@ curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' \
   | jq -c '.result.result | implode | fromjson | {id, owner, payout, slug, status, raised_usd_cents}'
 ```
 
-→ `{"id":"2","owner":"0x63428e70a8016d10e8e2f7da440c898063afa299","payout":null,"slug":"masya","status":"Open","raised_usd_cents":"…"}`. With `{"slug":"support"}` (`eyJzbHVnIjoic3VwcG9ydCJ9`) the contract returns `null`.
+→ `{"id":"2","owner":"0x63428e70a8016d10e8e2f7da440c898063afa299","payout":null,"slug":"masya","status":"Open","raised_usd_cents":"…"}`.
+
+nearblocks.io answers scripted requests with a Cloudflare 403. The contract's code and the relayer's keys over NEAR RPC:
+
+```sh
+# the deployed code: GxM9VeG6KT2uBAygcWP1mTRPVDDL9UpEZzFXBY1H6KzW, the bs58 SHA-256 that `cargo near build` prints for contract/ (0.2.0)
+curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_account","finality":"final","account_id":"nearjar.near"}}' \
+  | jq -r .result.code_hash
+
+# the relayer's keys
+curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_access_key_list","finality":"final","account_id":"relayer.nearjar.near"}}' \
+  | jq -c '.result.keys[].access_key.permission'
+```
+
+→ `{"FunctionCall":{"allowance":null,"method_names":["submit","record_donation"],"receiver_id":"nearjar.near"}}` is the key the server holds. The other key, `"FullAccess"`, stays with the operator and is not on the server.
 
 ## Create a jar (needs the wallet you use for near.com)
 
 1. Open https://nearjar.xyz/new → *Creator studio* asks for a wallet. Pick your near.com wallet's network on the **EVM** / **Solana** / **NEAR** / **TON** tabs and press **Connect EVM** (or **Connect Solana**, …) → NearJar shows your near.com account in the header and under **Payout & link** → *Where donations go*: `nearcom:0x…`, a 64-hex implicit account or a `name.near`.
 2. Fill in the editor tabs **Page**, **Goal & amounts**, **Payout & link** (receive asset, where donations go, short link) and **After donation** → the live preview updates as you type.
-3. Press **Publish** → the modal shows exactly what you sign → sign one message in your wallet. It is not a transaction and costs nothing.
-4. The relayer submits it to `nearjar.near`. The contract verifies the signature itself and asks `intents.near` whether that key belongs to your near.com account (`has_public_key`); only then is the jar stored. You get the jar link, a QR code and a share card.
+3. Press **Publish** → *Publish your jar*; *What exactly you sign* lists the signed fields (action, title, goal, receive asset, payout, short link, page fingerprint) → sign one message in your wallet, which shows the full text. It is not a transaction and costs nothing.
+4. The relayer submits it to `nearjar.near`. The contract verifies the signature itself and asks `intents.near` whether that key belongs to your near.com account (`has_public_key`); only then is the jar stored. The jar's page opens with *Your jar is live*: its link, a QR code, **Post on X**, **Copy link** and **Copy embed button**.
 
 ## Donate for real (optional)
 
@@ -100,7 +105,7 @@ Whether one member could is the DAO's own policy, so the jar page reads it and s
 - The creator signs the DAO together with the jar fields (`"payout": "shitzu.sputnik-dao.near"`), so the wallet shows where the money goes. `nearjar.near` stores it; `get_jar` returns `payout` and `endorsed`. The contract accepts only `<name>.sputnik-dao.near`, because only the factory `sputnik-dao.near` can create such accounts. Look-alikes like `x.sputnik-dao.near.evil.near` are refused.
 - The payout never changes. An `update_jar` that signs a different payout, or none, fails with `payout cannot change`. So a creator can't move a DAO jar, with its total and its link, to themselves.
 - Every quote reads the recipient from `get_jar` and asks 1Click for `recipientType: INTENTS` to the DAO. Short links resolve in the contract too (`get_jar_by_slug`); each is unique and signed by the owner. A jar page stored off chain is shown only while it hashes to the fingerprint the contract keeps. So write access to NearJar's database is not enough to send a jar's donors elsewhere or to change what its page says under the DAO's name.
-- Donation receipts are written to the contract only for what 1Click itself confirms: a finished swap credited to that jar's on-chain payout account.
+- The server writes a donation receipt only for what 1Click's `/status` confirms: a finished swap credited to that jar's on-chain payout account. The contract trusts the relayer for receipts; each one carries the intents.near delivery tx hash, so anyone can check it.
 - Before the relayer submits a new DAO jar, NearJar checks the signed message itself:
   1. the deployed contract stores DAO payouts;
   2. the DAO account exists;
@@ -135,7 +140,7 @@ Only the jar's payout DAO can call them. Every edit by the creator starts a new 
 
    With `id=shitzu&account=random-outsider.near` it answers `"isMember":false` and the reason in `problem`; `id=x.sputnik-dao.near.evil.near` is refused (`"ok":false`).
 2. With a DAO you're in (or a new treasury from [trezu.app](https://trezu.app)): open https://nearjar.xyz/new with the NEAR wallet the DAO lists → **Payout & link** → **A DAO treasury (Sputnik DAO)** → paste the DAO's name or Trezu link. The card shows its members, your roles and whether it can spend NEAR Intents funds; publishing stays off until all three check out.
-3. **Publish**: the modal and the wallet show `"payout": "<dao>"` in the signed text.
+3. **Publish**: *What exactly you sign* shows a *Payout* row with the DAO, and the wallet's signed text has `"payout": "<dao>"`.
 4. The jar page says *Donations go to the … treasury* with a Trezu link, and the donate review shows *Lands in: … treasury (NEAR Intents)*.
 5. In the studio, open the jar → copy the Trezu template, file the `endorse_jar` request → once approved the page shows *Endorsed by the DAO ✓*.
 
@@ -161,18 +166,17 @@ No secrets are needed to run the site and get live quotes:
 
 ```sh
 (cd web && pnpm install --frozen-lockfile)
-(cd web && NEARJAR_DEMO_OWNER=0x63428e70a8016d10e8e2f7da440c898063afa299 pnpm dev)   # http://localhost:3000
+(cd web && pnpm dev)   # http://localhost:3000
 ```
 
 pnpm prints an *Ignored build scripts* warning (for example for `@reown/appkit`). It is expected; nothing needs to be approved.
 
-→ `/`, `/j/support`, `/new` and `/api/quote` work against mainnet. Jars are read over NEAR RPC: `https://rpc.mainnet.near.org` by default (`web/src/lib/near.ts`), or `NEAR_RPC_URL`, which `.env.example` sets to `https://free.rpc.fastnear.com`. Quotes use the public 1Click API, statuses go to a local SQLite file (`local.db`).
+→ `/`, `/j/support-nearjar`, `/new` and `/api/quote` work against mainnet. Jars are read over NEAR RPC: `https://rpc.mainnet.near.org` by default (`web/src/lib/near.ts`), or `NEAR_RPC_URL`, which `.env.example` sets to `https://free.rpc.fastnear.com`. Quotes use the public 1Click API, statuses go to a local SQLite file (`local.db`).
 
 What needs configuration (copy [`web/.env.example`](web/.env.example) to `web/.env.local`):
 
 | Variable | Needed for |
 |---|---|
-| `NEARJAR_DEMO_OWNER` | the support jar (`/j/support`, id `demo`) and the near.com account it pays |
 | `RELAYER_ACCOUNT_ID`, `RELAYER_PRIVATE_KEY` | creating jars and writing receipts (a function-call key limited to the contract) |
 | `ONE_CLICK_JWT` | delivery into the **Confidential** near.com balance (`CONFIDENTIAL_INTENTS`, which 1Click quotes only with a partner JWT); without it donations land in the public intents.near balance (`INTENTS`) and the review's *Lands in* says *Public balance*. 1Click's fee was the same either way on 2026-11-09: 0.2%, or 0.01% on stablecoin pairs ([how to check](docs/FLOW.md#money)) |
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | a hosted database instead of `local.db` |
@@ -196,7 +200,7 @@ Contract:
 
 - **Creator** connects the same wallet they use for near.com. NearJar derives their near.com account, they fill in the jar and sign one message in the envelope `intents.near` itself accepts (`erc191`, `raw_ed25519`, `nep413`, `ton_connect`, …). The page (cover, milestones, links, …) is stored off chain; its sha256 fingerprint is part of the signed message and kept by the contract, and the page is shown only while it matches, so nobody can change it without the owner. The short link is signed and kept unique by the contract too.
 - **Contract** `nearjar.near` verifies the signature with the `intents.near` code (`defuse-core`) and checks the key with `intents.near.has_public_key`. So ownership follows near.com's own rules: rotate a key in near.com and NearJar follows.
-- **Relayer** `relayer.nearjar.near` pays gas with a function-call key that can call only `submit` and `record_donation` on the contract. It cannot forge or redirect a jar; it records only donations 1Click confirms delivered to the jar's payout account.
+- **Relayer** `relayer.nearjar.near` pays gas with a function-call key that can call only `submit` and `record_donation` on the contract. It cannot forge or redirect a jar. The server records only donations 1Click's `/status` confirms delivered to the jar's payout account.
 - **DAO jars** pay a Sputnik DAO treasury fixed in the contract at creation; the DAO endorses or closes its jar by proposal (see [DAO jars](#dao-jars-social-money-track)).
 - **Donor** pays with a wallet or to a one-time 1Click deposit address. Solana transfers are built with Any Wallet Kit's `@anywalletkit/wallet-solana` (`web/src/lib/pay/solana.ts`). EVM, TON, Tron, NEAR and Bitcoin payments are this repo's own code (`web/src/lib/pay/`) on EIP-1193, TON Connect, TronLink's `tronWeb`, NEAR Wallet Selector and sats-connect.
 - **Delivery** runs through NEAR Intents (1Click API) with recipient type `CONFIDENTIAL_INTENTS` (or `INTENTS`): the donation is swapped and credited to the creator's near.com balance, or with `INTENTS` to the jar's DAO treasury. A donation counts only after delivery; then the relayer records a receipt (jar, USD amount, asset, delivery tx) in the contract.
@@ -229,7 +233,7 @@ Hackathon rules allow pre-existing libraries and AI-written code if they are lis
   - `wallet-solana` 0.6.0: Solana transfer builders for donor payments.
   - `core` 0.8.0 and `protocol-swap2-core` 0.10.0 are in `web/package.json` but not imported by this repo: they come in as dependencies of the near-intents provider (`core` is its peer dependency, `protocol-swap2-core` a dependency). `tx-preview-evm` 0.5.0 is installed transitively through `protocol-swap2-core`.
 - **Third-party:**
-  - contract: `defuse-core` from near/intents (pinned commit) for signature verification, near-sdk; tests and examples use ed25519-dalek, k256, sha3, bs58 and hex.
+  - contract: `defuse-core` from near/intents (pinned commit) for signature verification, near-sdk, serde and serde_json; tests and examples use ed25519-dalek, k256, sha3, bs58 and hex.
   - web: Next.js, React, Tailwind CSS, Reown AppKit (with `@walletconnect/universal-provider`), wagmi, `@wagmi/core` and viem, `@tanstack/react-query` (wagmi's peer), NEAR Wallet Selector (Meteor, HERE, Intear, modal UI), TON Connect UI and `@ton/core`, `@solana/kit` and `@solana/web3.js`, sats-connect, `qrcode`, `buffer`, the libSQL client (Turso), `server-only`; vitest, ESLint and TypeScript for development.
   - near-api-js: 7.4.0, installed under the alias `near-api-js-v7`, signs the relayer's transactions (`web/src/lib/near.ts`). 6.5.1 is not imported by this repo; it is the peer dependency of Meteor Wallet's SDK (`@meteorwallet/sdk`, used by the wallet selector's Meteor module).
 - **AI assistance:** All commits were co-written with Claude Code (each carries a `Co-Authored-By: Claude` trailer); the author directed, reviewed and tested the work.
