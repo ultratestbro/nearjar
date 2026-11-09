@@ -53,7 +53,7 @@ Every `update_jar` increments `revision` and sets `endorsed = false` (event `jar
 
 ## Views
 
-`get_jar(jar_id)`, `get_jars(from, limit)` (≤ 100), `get_jars_by_owner(owner)` return jars as:
+`get_jar(jar_id)`, `get_jars(from, limit)` (≤ 100), `get_jars_by_owner(owner)` return jars. Ids and `from` are JSON strings (`U64`), `limit` is a number: `get_jar` takes `{"jar_id":"2"}`, `get_jars` `{"from":"0","limit":100}`. A number for `from` fails with `invalid type: integer`. A jar looks like this:
 
 ```json
 {
@@ -77,7 +77,7 @@ Every `update_jar` increments `revision` and sets `endorsed = false` (event `jar
 }
 ```
 
-`payout` is `null` and `endorsed` is `false` for a jar paid to its owner. Also `get_jar_by_slug(slug)`, `get_donations(jar_id, from, limit)`, `get_config()` (with `version`, the crate version of the deployed code; builds before DAO payouts have none) and `is_nonce_used(signer_id, nonce)`. Events are NEP-297 `standard: "nearjar"`, `version: "1.1.0"`.
+`payout` is `null` and `endorsed` is `false` for a jar paid to its owner. Also `get_jar_by_slug(slug)` (`{"slug":"masya"}`), `get_donations(jar_id, from, limit)` (strings and a number again: `{"jar_id":"1","from":"0","limit":100}`), `get_config()` (with `version`, the crate version of the deployed code; builds before DAO payouts have none) and `is_nonce_used(signer_id, nonce)`. Events are NEP-297 `standard: "nearjar"`, `version: "1.1.0"`.
 
 ## Donations
 
@@ -87,32 +87,40 @@ Every `update_jar` increments `revision` and sets `endorsed = false` (event `jar
 
 ```sh
 cargo test                                   # unit tests (signatures are real ed25519 / secp256k1)
-cargo near build non-reproducible-wasm --no-abi   # sets --cfg=near (host-function crypto), runs wasm-opt → target/near/nearjar.wasm (~463 KB)
+cargo near build non-reproducible-wasm --no-abi   # sets --cfg=near (host-function crypto), runs wasm-opt → target/near/nearjar.wasm
 ```
 
-Rust is pinned to 1.97.1 (`rust-toolchain.toml`), the same as near/intents.
+Rust is pinned to 1.97.1 (`rust-toolchain.toml`), the same as near/intents. With cargo-near 0.22 the build is 471,173 bytes, SHA-256 `ed0d072e793b1e008148d7d0c8e03343c0f9f0b475de062f57133c17e705f617`; cargo-near also prints it in bs58, `GxM9VeG6KT2uBAygcWP1mTRPVDDL9UpEZzFXBY1H6KzW`, which is the `code_hash` of `nearjar.near`.
+
+`examples/` holds two dev tools, not part of the contract:
+
+- `sign.rs` prints a signed NearJar action (`raw_ed25519` or `erc191`, from a throwaway key made of one seed byte) for the relayer to submit on testnet.
+- `auth_probe.rs` prints a 1Click User-Session sign-in payload (an empty intent with a versioned nonce, signed by a throwaway ed25519 key); it was used to probe 1Click's user-session sign-in (see the 1Click table in [docs/FLOW.md](../docs/FLOW.md)).
 
 ## Mainnet
-
-Live since 2026-11-07; 0.1.0 (wasm `7Xcyk6ciTSiwmqFhAFUGHudgwUtMcCjUBbpaJXgoDJqi`, the same build as testnet) had no DAO payout. The 0.2.0 build (DAO payouts, on-chain short links and page fingerprints) changes the stored `Jar` layout but not the contract state (`NearJar` and the existing storage prefixes are unchanged), so it upgrades in place only while `jars_count` is 0 (it was on 2026-11-08). Deploy it in one transaction with the guard, so the upgrade reverts if a jar was created in the meantime:
-
-```sh
-near contract deploy nearjar.near use-file target/near/nearjar.wasm \
-  with-init-call assert_no_jars json-args '{}' prepaid-gas '30 Tgas' attached-deposit '0 NEAR' \
-  network-config mainnet sign-with-keychain send
-near contract call-function as-read-only nearjar.near get_config json-args '{}' network-config mainnet now   # version "0.2.0"
-```
-
-`assert_no_jars` is `#[private]` and panics `jars exist: this upgrade needs a migration`; as the init call of the same transaction, its panic rolls the deploy back. Deploy the contract before the web app that expects it (the web app refuses DAO jars while `get_config` has no `version`).
 
 | Account | Role |
 |---|---|
 | [`nearjar.near`](https://nearblocks.io/address/nearjar.near) | NearJar (owner = itself), `intents_id = intents.near`, receive assets USDC, USDT, wNEAR, BTC, ETH |
-| [`relayer.nearjar.near`](https://nearblocks.io/address/relayer.nearjar.near) | relayer; the server holds only a function-call key limited to `submit` and `record_donation` on `nearjar.near` |
+| [`relayer.nearjar.near`](https://nearblocks.io/address/relayer.nearjar.near) | relayer; the server holds only a function-call key limited to `submit` and `record_donation` on `nearjar.near`; the account's full-access key stays with the operator |
 
-Deploy + `new(...)`: [`2fhHk9zS…`](https://nearblocks.io/txns/2fhHk9zSrjfxufNo13WtEmKLbXyHi34U3ECZfQni4cQ3) · `add_relayer`: [`ALDC7icy…`](https://nearblocks.io/txns/ALDC7icyngJZ6TB4PzS2WioAqxTEXabuPCdHkXChwkzq).
+0.1.0 went live on 2026-11-07 (wasm `7Xcyk6ciTSiwmqFhAFUGHudgwUtMcCjUBbpaJXgoDJqi`, the same build as testnet) without DAO payouts. Deploy + `new(...)`: [`2fhHk9zS…`](https://nearblocks.io/txns/2fhHk9zSrjfxufNo13WtEmKLbXyHi34U3ECZfQni4cQ3) · `add_relayer`: [`ALDC7icy…`](https://nearblocks.io/txns/ALDC7icyngJZ6TB4PzS2WioAqxTEXabuPCdHkXChwkzq).
 
-0.2.0 is live since 2026-11-08: wasm `GxM9VeG6KT2uBAygcWP1mTRPVDDL9UpEZzFXBY1H6KzW` (sha256 `ed0d072e…f617` of `target/near/nearjar.wasm`), deploy with `assert_no_jars`: [`Bixmq42w…`](https://nearblocks.io/txns/Bixmq42wknUFM1NwLF7p4KCD1mncwtwaghcwCUAWKa8x). Release check through nearjar.xyz with a throwaway implicit account: jar #0 created with short link `smoke-020-a` ([`J5v3jgCB…`](https://nearblocks.io/txns/J5v3jgCBiWJZThgD9ZX3xfUophBwSQyxGLJ2aFgoWQrj)), edited to `smoke-020-b`, revision 1 ([`5J8aJFdZ…`](https://nearblocks.io/txns/5J8aJFdZUPVHZu7F476qVDciLQU5WvN5xgUbhRYoXx71)), closed ([`4BxVGijr…`](https://nearblocks.io/txns/4BxVGijrZcohMVNhuVXnxAo3mkwHLk74qkHebAFyDZB9)).
+0.2.0 (DAO payouts, on-chain short links and page fingerprints) is live since 2026-11-08: wasm `GxM9VeG6KT2uBAygcWP1mTRPVDDL9UpEZzFXBY1H6KzW`, deployed with `assert_no_jars`: [`Bixmq42w…`](https://nearblocks.io/txns/Bixmq42wknUFM1NwLF7p4KCD1mncwtwaghcwCUAWKa8x). Release check through nearjar.xyz with a throwaway implicit account: jar #0 created with short link `smoke-020-a` ([`J5v3jgCB…`](https://nearblocks.io/txns/J5v3jgCBiWJZThgD9ZX3xfUophBwSQyxGLJ2aFgoWQrj)), edited to `smoke-020-b`, revision 1 ([`5J8aJFdZ…`](https://nearblocks.io/txns/5J8aJFdZUPVHZu7F476qVDciLQU5WvN5xgUbhRYoXx71)), closed ([`4BxVGijr…`](https://nearblocks.io/txns/4BxVGijrZcohMVNhuVXnxAo3mkwHLk74qkHebAFyDZB9)).
+
+Storage on 2026-11-09 (0.2.0, 3 jars): `storage_usage` 475,999 bytes, so about 4.76 NEAR of the account's balance is reserved for storage.
+
+nearblocks.io answers scripted requests with a Cloudflare 403; the same checks over RPC:
+
+```sh
+RPC=https://free.rpc.fastnear.com
+q() { curl -s $RPC -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"query\",\"params\":$1}"; }
+q '{"request_type":"view_account","finality":"final","account_id":"nearjar.near"}' | jq -c '.result | {code_hash, storage_usage}'
+q '{"request_type":"view_access_key_list","finality":"final","account_id":"relayer.nearjar.near"}' | jq -c '.result.keys[].access_key.permission'
+q '{"request_type":"call_function","finality":"final","account_id":"nearjar.near","method_name":"get_config","args_base64":"e30="}' | jq -c '.result.result | implode | fromjson'
+```
+
+→ `code_hash` `GxM9VeG6KT2uBAygcWP1mTRPVDDL9UpEZzFXBY1H6KzW`; the relayer's keys are one `FunctionCall` key for `nearjar.near` with `method_names` `["submit","record_donation"]` and the operator's `"FullAccess"` key; `get_config` returns `"version":"0.2.0"`, the relayer list and `jars_count`.
 
 ## Testnet
 
@@ -125,16 +133,8 @@ implicit accounts, plus `add_public_key` / `remove_public_key`). Live since 2026
 | `intents.nearjar.testnet` | intents stub |
 | `relayer.nearjar.testnet` | relayer |
 
-Sign an action and submit it as the relayer:
-
-```sh
-cargo run -q --example sign -- ed25519 42 nearjar.testnet '{"action":"create_jar","jar":{…}}' > signed.json
-near contract call-function as-transaction nearjar.testnet submit json-args "$(cat signed.json)" \
-  prepaid-gas '100 Tgas' attached-deposit '0 NEAR' sign-as relayer.nearjar.testnet network-config testnet sign-with-keychain send
-```
-
-Verified on testnet: create via raw Ed25519 and ERC-191 signatures, replayed signature refused (`nonce already used`),
-`record_donation` updates the jar total. Storage: code 4.58 NEAR locked; ~0.0005 NEAR gas per relayer call.
+Verified on testnet with 0.1.0: create via raw Ed25519 and ERC-191 signatures, replayed signature refused (`nonce already used`),
+`record_donation` updates the jar total. The 0.1.0 code took about 4.58 NEAR of storage; a relayer call costs ~0.0005 NEAR of gas.
 
 0.2.0 verified on a fresh account, `nearjar-v2-e2e.testnet` (2026-11-08), through the web app's own prepare and relay
 routes: create with a short link and page fingerprint ([`FKueRN8R…`](https://testnet.nearblocks.io/txns/FKueRN8R5PAf3kCe4YnJMWF1JgiqGSAEEaoNTFM5T49q)),
@@ -142,4 +142,27 @@ update to a new link (revision 1, the old link still resolves to the jar) ([`2qv
 close ([`EgGqDZtY…`](https://testnet.nearblocks.io/txns/EgGqDZtYAs4kaYef9n2KNHgcHbu21v5LcWBd5y18KskT)); a replay, a stranger's update, a taken
 or reserved link and a page changed after signing were refused, and a page edited in the database was not shown.
 
-`nearjar.testnet` still runs the 0.1.0 build and probably holds jars in the old layout: deploying 0.2.0 over it would make them unreadable. Use a fresh account for the new build (the same `assert_no_jars` deploy works there). DAO payouts accept only mainnet `*.sputnik-dao.near` ids, and the stub has no `public_keys_of`, so DAO jars can't be made on testnet.
+`nearjar.testnet` runs the 0.1.0 build (code hash `7Xcyk6ciTSiwmqFhAFUGHudgwUtMcCjUBbpaJXgoDJqi`, `get_config` has no `version`) and holds jars in the 0.1.0 layout (`get_config` `jars_count` was 13 on 2026-11-09). Deploying 0.2.0 over it would make them unreadable, so the new build runs on a fresh account. DAO payouts accept only mainnet `*.sputnik-dao.near` ids, and the stub has no `public_keys_of`, so DAO jars can't be made on testnet.
+
+## Operator notes
+
+For the contract operator only; these commands sign with the operator's keys and are not needed to check anything above.
+
+**Upgrading 0.1.0 → 0.2.0 in place** (done on mainnet on 2026-11-08, transaction above). 0.2.0 changes the stored `Jar` layout but not the contract state (`NearJar` and the existing storage prefixes are unchanged), so it upgrades in place only while `jars_count` is 0 (it was on mainnet on 2026-11-08). Deploy it in one transaction with the guard, so the upgrade reverts if a jar was created in the meantime:
+
+```sh
+near contract deploy nearjar.near use-file target/near/nearjar.wasm \
+  with-init-call assert_no_jars json-args '{}' prepaid-gas '30 Tgas' attached-deposit '0 NEAR' \
+  network-config mainnet sign-with-keychain send
+near contract call-function as-read-only nearjar.near get_config json-args '{}' network-config mainnet now   # version "0.2.0"
+```
+
+`assert_no_jars` is `#[private]` and panics `jars exist: this upgrade needs a migration`; as the init call of the same transaction, its panic rolls the deploy back. Deploy the contract before the web app that expects it (the web app refuses DAO jars while `get_config` has no `version`). On a fresh account `assert_no_jars` would fail (there is no state yet and `NearJar` is `PanicOnDefault`), so a fresh account is deployed with the `new(owner_id, intents_id, assets)` init call instead.
+
+**Submitting a signed action on testnet as the relayer:**
+
+```sh
+cargo run -q --example sign -- ed25519 42 nearjar.testnet '{"action":"create_jar","jar":{…}}' > signed.json
+near contract call-function as-transaction nearjar.testnet submit json-args "$(cat signed.json)" \
+  prepaid-gas '100 Tgas' attached-deposit '0 NEAR' sign-as relayer.nearjar.testnet network-config testnet sign-with-keychain send
+```

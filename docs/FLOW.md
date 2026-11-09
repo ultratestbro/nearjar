@@ -1,6 +1,6 @@
 # NearJar — flow and decisions
 
-Agreed 2026-11-02. This is the spec the code follows; change it here first.
+Product flow and design decisions, kept in sync with the code.
 
 ## Accounts
 
@@ -11,7 +11,7 @@ A near.com account is an account inside the `intents.near` contract, derived fro
 | EVM | the lowercase `0x…` address (shown in near.com as `nearcom:0x…`) |
 | Solana / TON | 64-hex implicit id from the ed25519 public key |
 | NEAR | the NEAR account id (named or implicit) |
-| Passkey | not supported yet (maybe at the end) |
+| Passkey | not supported |
 
 Verified 2026-11-02: a dry 1Click quote with `recipient: 0x63428e70…a299`, `recipientType: INTENTS` (5 USDC Solana → USDC on NEAR) returns ~4.9995 USDC in ~20 s.
 
@@ -29,21 +29,21 @@ Recipient rule (Any Wallet Kit near-intents ≥0.3.0, both modes, `destChain: ne
 
 ## Creator
 
-1. Connect the same wallet type used for near.com: EVM, Solana, NEAR or TON (all four in v1).
-2. NearJar derives and shows the near.com account: "donations arrive here: nearcom:0x6…99, compare with Receive in near.com".
-3. Fill in: title, description, image, optional goal in USD and end date, receive asset (USDC default; USDT, NEAR, BTC, ETH).
+1. Connect the same wallet type used for near.com: EVM, Solana, NEAR or TON.
+2. NearJar derives the near.com account and shows it in the header (its menu shows `nearcom:…`) and in the editor under **Payout & link** → *Where donations go* → *My near.com balance* (`nearcom:0x6342…a299` · the wallet you signed in with).
+3. Fill in: cover, photo or logo, title, one line about you, story; optional goal in USD, milestones and suggested amounts; receive asset (USDC default; USDT, NEAR, BTC, ETH), where donations go and an optional short link; a thank-you note and links. The contract has an `ends_at` field, but the editor doesn't set it.
 4. Sign one message (no gas). The relayer submits it; the contract verifies the signature (EVM `ecrecover`, ed25519 for Solana/NEAR/TON).
 5. Get the link, QR and "share on X".
-6. "My jars": donations list, edit/close (signed), hide messages, CSV export.
+6. Creator studio: each jar's total, supporters and donations, edit (signed), CSV export. Closing is a signed `close_jar` that the prepare and relay routes accept; the studio has no close button.
 
 ## DAO jars
 
-Agreed 2026-11-08. A jar may pay a Sputnik DAO treasury instead of the creator's near.com account.
+A jar may pay a Sputnik DAO treasury instead of the creator's near.com account.
 
 - **Where the payout lives.** In the contract: `SignedJar.payout` (optional, `<label>.sputnik-dao.near` only), stored on the jar at creation. `update_jar` must sign the same value (absent = none) or the contract panics `payout cannot change`. `get_jar` returns `payout`, `endorsed` and `revision`.
 - **Why not page data.** Page data sits in Turso; a payout there would let whoever writes to the database redirect donations. Every quote takes the recipient from `get_jar` (`lib/quote.ts` `payoutOf`), nothing else.
-- **Nothing in Turso points donors anywhere** (amended 2026-11-08 after the security review). The short link is a signed jar field the contract keeps unique (`get_jar_by_slug`; a link once claimed keeps pointing at its jar, also after a rename or close), so a database writer can't move `/j/<slug>` to another jar. The page's `sha256` fingerprint is stored on chain and the page is shown only when its stored text hashes to it (`lib/pages.ts` `trustedPage`); images are served only when their bytes hash to their id. Receipts are recorded only for what 1Click's `/status` confirms: `SUCCESS` with `quoteRequest.recipient` = the jar's payout account (`INTENTS` for a DAO). What stays in Turso unverified: donor names and messages, and in-flight statuses.
-- **Delivery.** `recipientType: INTENTS` to the DAO: its public intents.near balance, which Trezu lists as *Intents* and spends by FunctionCall proposal (`mt_transfer` / `ft_withdraw` on intents.near). Not `CONFIDENTIAL_INTENTS`: a public treasury can't see confidential credits. The partner JWT, when set, is sent with it too (no fee); JWT + `INTENTS` is still to be confirmed on a live quote.
+- **Nothing in Turso points donors anywhere.** The short link is a signed jar field the contract keeps unique (`get_jar_by_slug`; a link once claimed keeps pointing at its jar, also after a rename or close), so a database writer can't move `/j/<slug>` to another jar. The page's `sha256` fingerprint is stored on chain and the page is shown only when its stored text hashes to it (`lib/pages.ts` `trustedPage`); images are served only when their bytes hash to their id. Receipts are recorded only for what 1Click's `/status` confirms: `SUCCESS` with `quoteRequest.recipient` = the jar's payout account (`INTENTS` for a DAO). What stays in Turso unverified: donor names and messages, and in-flight statuses.
+- **Delivery.** `recipientType: INTENTS` to the DAO: its public intents.near balance, which Trezu lists as *Intents* and spends by FunctionCall proposal (`mt_transfer` / `ft_withdraw` on intents.near). Not `CONFIDENTIAL_INTENTS`: a public treasury can't see confidential credits. The partner JWT, when set, is sent with it too (no fee). Checked on a live quote (2026-11-09): nearjar.xyz, which runs with the JWT, quotes the DAO jar (jar `1`) with `INTENTS` and without the 0.2% 1Click fee.
 - **Who may create one.** Checked in `/api/jars/prepare` (for the editor) and again in `/api/jars` on the signed message itself, before the relayer pays (all seven standards: the JSON is `payload`, `payload.message` for NEP-413, `payload.text` for TON Connect):
   1. the contract stores DAO payouts (`get_config` has `version`; an older build would make the jar pay the signer);
   2. the DAO account exists with a contract (own code or the factory's global contract) and `get_policy` reads;
@@ -51,27 +51,27 @@ Agreed 2026-11-08. A jar may pay a Sputnik DAO treasury instead of the creator's
   4. the DAO can spend Intents funds: the signer's roles allow `call:AddProposal` (or `call:*`, `*:AddProposal`, `*:*`) and a `Group` role can pass a `call` proposal: it allows `call:VoteApprove` (or the same wildcards), has members, and its role-weighted rule max(quorum, threshold) fits its size. `Everyone` never approves: Sputnik's `proposal_status` skips it. Token-weighted votes aren't counted;
   5. `intents.near.public_keys_of(dao)` is empty: a registered key could spend the Intents balance without a proposal.
   Any RPC or parse error refuses. Lookups are cached for 60 s (an existing DAO account and a contract with DAO payouts for an hour; at most 500 entries). Quotes re-check that the account exists and has no intents key, because 1Click credits even a name nobody has created. A Sputnik DAO has no way to delete itself, and its code can only change to a version the factory stores (`upgrade_self` goes through `sputnik-dao.near.update`), so a name taken over after deletion would need the factory owner.
-- **Who decides over the money.** The jar page and the editor show the DAO's members and the fewest approvals that pass a FunctionCall proposal (`lib/daoPolicy.ts` `governance`), and warn when one account can act alone: one approval spends, or one approval changes the policy, roles, code, vote token or factory info. Two of the five recorded DAOs (agentic, webassemblymusic-treasury) are like that; NearJar still allows them and says so to donors.
+- **Who decides over the money.** The jar page and the editor show the DAO's members and the fewest approvals that pass a FunctionCall proposal (`lib/daoPolicy.ts` `governance`). The jar page's line is short: `9 members · Spending: 3 of 9 approvals` (`spendShort`). The full rule (`spendText`) and any one-member warning (`soloText`) are in its hover text. When one approval spends, the line shows that count (`Spending: 1 approval`, or `Spending: 1 of 2 approvals`) and the hover adds *One member can approve spending alone*. When one approval changes the policy, roles, code, vote token or factory info, the line adds `Rules: 1 approval`; token-weighted votes add `Token-weighted votes`. The editor shows the warning as a sentence. Some of the DAO policies recorded in `web/src/lib/__fixtures__` are like that (agentic, webassemblymusic-treasury); NearJar still allows them.
 - **Updates.** Prepare always signs the jar's on-chain payout; the relay route refuses an update whose signed payout differs before relaying. Membership isn't re-checked on updates: the money can't move, every edit clears the endorsement, and the DAO has its own stop button.
 - **Endorsement.** Membership is not consent (anyone can create a DAO listing anyone), so the page shows *Not endorsed by the DAO yet* until the DAO calls `endorse_jar(jar_id, revision)` through an approved FunctionCall proposal (deposit 0, 30 Tgas, both ids as strings). Every owner edit bumps `revision` and sets `endorsed = false`; an `endorse_jar` naming an older revision fails, so a proposal filed before an edit can't endorse content the DAO never saw. `dao_close_jar(jar_id)` is its stop button. Both accept only `predecessor == jar.payout`. The DAO has no "unendorse": its stop button is closing the jar.
-- **UI.** Editor: *Where donations go* → near.com balance or *A DAO treasury (Sputnik DAO)*, a live check via `GET /api/dao` and a "can't be changed after publishing" warning; existing DAO jars show it read-only. The jar page, donate review and donation status name the treasury; the studio marks DAO jars and shows the endorse request with copy buttons.
+- **UI.** Editor: *Where donations go* → *My near.com balance* or *A DAO treasury (Sputnik DAO)*, a live check via `GET /api/dao` and a "can't be changed after publishing" warning; existing DAO jars show it read-only. The jar page, donate review and donation status name the treasury; the studio marks DAO jars and shows the endorse request with copy buttons.
 
 ## Donor
 
-1. Open the jar link: creator, description, progress, recent donations, recipient account with a "verify" link.
+1. Open the jar link: cover, story, progress, supporters and where donations arrive (*Donations arrive as USDC in* `nearcom:…`, copied in full on tap; for a DAO jar, the treasury with a Trezu link).
 2. Enter the amount in USD; a live quote shows what the creator receives.
 3. Pay one of three ways:
-   - **a) Wallet** — EVM / Solana / TON / Tron / NEAR / BTC via the Any Wallet Kit SDK, one signature.
+   - **a) Wallet** — EVM / Solana / TON / Tron / NEAR / BTC, one signature. Solana transfers are built with Any Wallet Kit's `wallet-solana`; the other payers are this repo's own code (`lib/pay/`) on EIP-1193, TON Connect, TronLink's `tronWeb`, NEAR Wallet Selector and sats-connect.
    - **b) Manual** — one-time 1Click deposit address + QR on the chosen chain; donor gives a refund address.
-   - **c) From near.com** — planned, not built yet: the donor signs a gasless transfer from their `intents.near` balance carrying the jar id; the relayer submits it.
-4. Optional name + message (≤280 chars, text only, shown only after delivery, creator can hide it).
-5. Status: waiting for deposit → in progress → delivered (source tx + intents.near tx links) or refunded.
-6. Receipt + "share on X".
+   - **c) From near.com** — not built: the donor would sign a gasless transfer from their `intents.near` balance carrying the jar id, and the relayer would submit it.
+4. Optional name (≤40 chars) and message (≤280 chars, text only), shown only after delivery.
+5. Status: waiting for deposit → on its way → delivered (source tx and NEAR delivery tx links), or refunded / failed / expired.
+6. Delivered: the creator's thank-you note and a *Share the jar* button (the share sheet, or a copied link).
 
 ## Attribution
 
 - a, b: each donation gets its own 1Click quote and deposit address → stored as `deposit → jar`.
-- c (planned): the signed transfer would carry the jar id.
+- c (not built): the signed transfer would carry the jar id.
 
 ## Storage
 
@@ -81,13 +81,13 @@ Agreed 2026-11-08. A jar may pay a Sputnik DAO treasury instead of the creator's
 | Page data and images | Turso, shown only when they match the fingerprint / image hash |
 | Delivered donations | NEAR contract — compact receipt written by the relayer: jar, USD amount, asset, tx hash |
 | In-flight statuses | Turso |
-| Names and messages | Turso (hideable) |
+| Names and messages | Turso |
 
 The contract cannot verify a payment on another chain, so receipts are relayer-attested and checkable via the delivery tx hash.
 
 ## Money
 
-- Service fee: 0. 1Click charges 0.2% without a partner JWT; NearJar uses one, so there is no 1Click fee either.
+- Service fee: 0. 1Click charges 0.2% without a partner JWT. The hosted site (nearjar.xyz) runs with one, so there is no 1Click fee there; a local run without `ONE_CLICK_JWT` pays the 0.2%.
 - Minimum donation: $1.
 - Funds always go straight to the creator's near.com balance, or to the jar's DAO treasury; NearJar never holds them.
 
@@ -95,8 +95,8 @@ The contract cannot verify a payment on another chain, so receipts are relayer-a
 
 - Next.js (App Router) on Vercel, Turso (libSQL).
 - Contract: Rust, near-sdk, mainnet, account `nearjar.near`.
-- Relayer: `relayer.nearjar.near` with a function-call key limited to the contract (pays gas only). The full-access keys stay with the owner.
-- Status tracking: polled while a donation status or jar page is open (`/api/donations/[id]`, `/api/jars/[id]/sync`); the same polling writes the receipts.
+- Relayer: `relayer.nearjar.near` with a function-call key limited to the contract (pays gas only). Its full-access key stays with the operator, not on the server.
+- Status tracking: the donation status screen polls `/api/donations/[id]` every 5 s and `/d/[id]` refreshes when it loads; a jar page calls `/api/jars/[id]/sync` once when it loads (that jar's open donations from the last two days). The same checks write the receipts. There is no cron job.
 - UI: English, near.com-like style (dark, green accent), no near.com logo, "concept, not official" note.
 - Domain: https://nearjar.xyz.
 
