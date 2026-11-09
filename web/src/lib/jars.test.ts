@@ -2,7 +2,7 @@
 // web app spells them by the same rule the contract checks.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getJar, resolveJar, slugAvailable } from "./jars";
-import { SLUG } from "./pageData";
+import { SLUG, SUPPORT_JAR_SLUG } from "./pageData";
 
 const chainJar = (id: string, slug: string | null) => ({
   id, owner: "ana.near", payout: null, endorsed: false, revision: "0", slug, page: null, title: `Jar ${id}`, description: "",
@@ -42,6 +42,18 @@ describe("resolveJar", () => {
     expect(await resolveJar("../etc")).toBeNull();
     expect(await resolveJar("a")).toBeNull();
     expect(calls).toHaveLength(1);
+  });
+
+  it("the developer's earlier links open the developer's jar on chain", async () => {
+    bySlug[SUPPORT_JAR_SLUG] = chainJar("3", SUPPORT_JAR_SLUG);
+    expect((await resolveJar("support"))?.id).toBe("3");
+    expect((await resolveJar("Demo"))?.id).toBe("3");
+    expect(calls.map((c) => c.args.slug)).toEqual([SUPPORT_JAR_SLUG, SUPPORT_JAR_SLUG]);
+  });
+
+  it("there is no off-chain jar: \"demo\" is not an id", async () => {
+    expect(await getJar("demo")).toBeNull();
+    expect(calls).toHaveLength(0);
   });
 
   it("an old contract's jar gets the new fields filled", async () => {

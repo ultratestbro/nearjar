@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { StudioCatalog } from "@/lib/assets";
 import { EMPTY_PAGE, type JarPageData } from "@/lib/pageData";
@@ -20,6 +21,7 @@ type View = { kind: "home" } | { kind: "jar"; id: string } | { kind: "edit"; id:
 /** Creator studio in near.com's layout: jars in a sidebar, one rounded panel for the current view. */
 export function Studio({ assets, catalog = { chains: [], tokens: {} }, startNew = false }: { assets: readonly AssetWithIcon[]; catalog?: StudioCatalog; startNew?: boolean }) {
   const { wallet, restoring } = useWallet();
+  const router = useRouter();
   const account = wallet?.account ?? "";
   const [view, setView] = useState<View>(startNew ? { kind: "edit", id: null } : { kind: "home" });
   const [tab, setTab] = useState<"overview" | "payouts">("overview");
@@ -139,6 +141,11 @@ export function Studio({ assets, catalog = { chains: [], tokens: {} }, startNew 
               assets={assets}
               onClose={() => setView(view.id ? { kind: "jar", id: view.id } : { kind: "home" })}
               onPublished={(r) => {
+                // a new jar opens on its own page, with the share kit; a failed page save stays here to say so
+                if (r.isNew && !r.pageError) {
+                  router.push(`/j/${r.slug ?? r.jarId}?new=1`);
+                  return;
+                }
                 setReload((n) => n + 1);
                 setView({ kind: "jar", id: r.jarId });
                 setToast(r.pageError ?? (r.isNew ? "Your jar is live" : "Changes are live"));

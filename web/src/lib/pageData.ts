@@ -55,12 +55,13 @@ export const EMPTY_PAGE: JarPageData = {
 const HASH = /^[0-9a-f]{64}$/;
 // a letter somewhere, so a short link never looks like a jar id; the contract checks the same rule
 export const SLUG = /^(?=[a-z0-9-]*[a-z])[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
-/** Links the site itself serves (/j/support is the developer's jar), so no jar can claim them. */
+/** The developer's own jar on the contract; the landing page's "Support the developer" opens it. */
+export const SUPPORT_JAR_SLUG = "support-nearjar";
+/** Earlier links of the developer's jar: they open SUPPORT_JAR_SLUG, so no jar can claim them. */
 export const RESERVED_SLUGS: readonly string[] = ["support", "demo"];
 
-// uploads are stored by hash; a site path ("/icon-180.png") is only ever set by the server itself,
-// since parsePage accepts hashes alone
-export const imageUrl = (hash: string) => (hash.startsWith("/") ? hash : `/api/img/${hash}`);
+// uploads are stored by hash (parsePage accepts hashes alone)
+export const imageUrl = (hash: string) => `/api/img/${hash}`;
 
 /** "Help Ana finish her film" → "help-ana-finish-her-film" (≤ 40 chars). */
 export function slugify(s: string): string {

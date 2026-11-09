@@ -4,6 +4,7 @@ import { DaoPayoutLine } from "@/components/Dao";
 import { DonatePanel } from "@/components/DonatePanel";
 import { JarAvatar, JarCover } from "@/components/JarArt";
 import { CopyAccount, DonateCta } from "@/components/JarMobile";
+import { NewJarShare } from "@/components/ShareModal";
 import { ChippedIn, JarAbout, JarLinkRow, JarSupporters, JustGave, Stat, StatusChip, type SupporterRow } from "@/components/JarSections";
 import { Progress, money } from "@/components/ui";
 import { RECEIVE_ASSETS, SOURCE_ASSETS, receiveAsset } from "@/lib/assets";
@@ -148,6 +149,7 @@ async function Jar({ params }: { params: Promise<{ id: string }> }) {
       </div>
 
       {open && <DonateCta raisedUsd={raised} goalUsd={goal} />}
+      <NewJarShare path={sharePath} title={jar.title} raisedUsd={raised} />
     </div>
   );
 }

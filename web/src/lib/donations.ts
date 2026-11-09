@@ -189,7 +189,6 @@ export function receiptRefusal(jar: Pick<Jar, "owner" | "payout">, s: Status): s
 }
 
 async function recordOnChain(d: DonationRow, s: Status): Promise<void> {
-  if (d.jar_id === "demo") return; // the developer's support jar is not in the contract
   const jar = await getJar(d.jar_id).catch(() => null);
   if (!jar || receiptRefusal(jar, s)) return;
   // Claim the write first: two status polls must not both relay it.

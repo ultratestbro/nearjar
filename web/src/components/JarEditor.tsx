@@ -12,6 +12,7 @@ import {
   normalizeLink,
   PAGE_LIMITS,
   PRESET_CHOICES,
+  RESERVED_SLUGS,
   SLUG,
   slugify,
   type JarPageData,
@@ -165,18 +166,20 @@ export function JarEditor({
   // checked availability, per short link; the state of the one typed now is derived from it
   const [checked, setChecked] = useState<{ slug: string; available: boolean } | null>(null);
   const slug = d.slug.trim();
-  const slugState: "idle" | "checking" | "ok" | "taken" | "bad" = !slug
+  const slugState: SlugState = !slug
     ? "idle"
     : !SLUG.test(slug)
       ? "bad"
-      : checked?.slug === slug
+      : RESERVED_SLUGS.includes(slug)
+        ? "reserved"
+        : checked?.slug === slug
         ? checked.available
           ? "ok"
           : "taken"
         : "checking";
 
   useEffect(() => {
-    if (!slug || !SLUG.test(slug)) return;
+    if (!slug || !SLUG.test(slug) || RESERVED_SLUGS.includes(slug)) return;
     const ctrl = new AbortController();
     const t = setTimeout(() => {
       fetch(`/api/jars/slug?s=${encodeURIComponent(slug)}${jar ? `&jar=${jar.id}` : ""}`, { signal: ctrl.signal })
@@ -242,7 +245,7 @@ export function JarEditor({
   const warn: Record<Section, boolean> = {
     page: !hasCover || !d.story.trim(),
     goal: d.milestones.some((m) => !m.label.trim() || !(Number(m.usd) >= 1)),
-    payout: slugState === "taken" || slugState === "bad" || !!daoProblem,
+    payout: slugState === "taken" || slugState === "reserved" || slugState === "bad" || !!daoProblem,
     after: !d.thanks.trim() || !!badLink,
   };
   const problem = !d.title.trim()
@@ -255,7 +258,9 @@ export function JarEditor({
           ? daoProblem
           : slugState === "taken"
             ? "That short link is taken."
-            : slugState === "bad"
+            : slugState === "reserved"
+              ? "That short link is reserved."
+              : slugState === "bad"
               ? "Short link: 3–40 letters, digits or dashes."
               : linkProblem;
   const canPublish = !problem && (dirty || isNew) && slugState !== "checking" && daoState !== "checking";
@@ -471,7 +476,7 @@ export function JarEditor({
               )}
 
               <Field label="Short link" hint={slugHint(slugState)}>
-                <label className={`flex items-center rounded-xl border bg-surface-2 px-3 focus-within:border-accent ${slugState === "taken" || slugState === "bad" ? "border-danger/60" : "border-line"}`}>
+                <label className={`flex items-center rounded-xl border bg-surface-2 px-3 focus-within:border-accent ${slugState === "taken" || slugState === "reserved" || slugState === "bad" ? "border-danger/60" : "border-line"}`}>
                   <span className="shrink-0 text-muted">nearjar.xyz/j/</span>
                   <input value={d.slug} maxLength={40} placeholder="ana-film" aria-label="Short link"
                     onChange={(e) => {
@@ -480,7 +485,7 @@ export function JarEditor({
                     }}
                     className="w-full bg-transparent py-2.5 font-mono outline-none" />
                   {slugState === "ok" && <span className="shrink-0 text-sm text-accent">available ✓</span>}
-                  {slugState === "taken" && <span className="shrink-0 text-sm text-danger">taken</span>}
+                  {(slugState === "taken" || slugState === "reserved") && <span className="shrink-0 text-sm text-danger">{slugState}</span>}
                 </label>
               </Field>
             </div>
@@ -624,9 +629,12 @@ function DaoCheckCard({ info }: { info: Extract<DaoInfo, { ok: true }> }) {
   );
 }
 
-function slugHint(s: "idle" | "checking" | "ok" | "taken" | "bad"): string {
+type SlugState = "idle" | "checking" | "ok" | "taken" | "reserved" | "bad";
+
+function slugHint(s: SlugState): string {
   if (s === "checking") return "Checking…";
   if (s === "taken") return "Another jar uses this link. Try another.";
+  if (s === "reserved") return "NearJar keeps this link for its own jar. Try another.";
   if (s === "bad") return "3–40 letters, digits or dashes, with at least one letter.";
   return "Optional. The numbered link keeps working too.";
 }

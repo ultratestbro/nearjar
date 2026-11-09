@@ -1,11 +1,12 @@
 "use client";
 
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Modal } from "./Modal";
 
 /** Share kit for one jar: QR, the X card it unfurls to, copy link, and an embed button. */
-export function ShareModal({ path, title, raisedUsd, onClose }: { path: string; title: string; raisedUsd: number; onClose: () => void }) {
+export function ShareModal({ path, title, raisedUsd, heading, onClose }: { path: string; title: string; raisedUsd: number; heading?: string; onClose: () => void }) {
   const [qr, setQr] = useState("");
   const [copied, setCopied] = useState("");
   const url = typeof window === "undefined" ? "" : `${window.location.origin}${path}`;
@@ -28,7 +29,7 @@ export function ShareModal({ path, title, raisedUsd, onClose }: { path: string; 
   const btn = "btn-tactile h-10 px-4 text-sm";
 
   return (
-    <Modal title={`Share “${title}”`} onClose={onClose} wide>
+    <Modal title={heading ?? `Share “${title}”`} onClose={onClose} wide>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 sm:grid-cols-[200px_minmax(0,1fr)]">
         <div className="mx-auto aspect-square w-full max-w-[200px] rounded-2xl bg-white p-3 sm:mx-0" dangerouslySetInnerHTML={{ __html: qr }} />
         <div className="flex min-w-0 flex-col gap-3">
@@ -47,4 +48,18 @@ export function ShareModal({ path, title, raisedUsd, onClose }: { path: string; 
       </div>
     </Modal>
   );
+}
+
+const noop = () => () => {};
+
+/** The share kit a new jar's page opens with (the studio sends the creator there with ?new=1). */
+export function NewJarShare({ path, title, raisedUsd }: { path: string; title: string; raisedUsd: number }) {
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  // the kit reads window for its link, so it opens after hydration, never in the server render
+  const mounted = useSyncExternalStore(noop, () => true, () => false);
+  if (!mounted || params.get("new") !== "1") return null;
+  // dropping the flag closes the kit and keeps a reload or a shared URL from reopening it
+  return <ShareModal path={path} title={title} raisedUsd={raisedUsd} heading="Your jar is live" onClose={() => router.replace(pathname, { scroll: false })} />;
 }

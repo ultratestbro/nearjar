@@ -48,10 +48,6 @@ describe("trustedPage", () => {
     expect(trustedPage({ id: "7", page: `sha256:${"0".repeat(64)}` }, null)).toEqual(EMPTY_PAGE);
   });
 
-  it("the developer's jar keeps its built-in page", () => {
-    expect(trustedPage({ id: "demo", page: null }, null).slug).toBe("support");
-  });
-
   it("no longer writes the database's slug column: links live in the contract", async () => {
     await savePage("8", page({ slug: "ana-film" }), "h", null);
     await savePage("9", page({ slug: "ana-film" }), "h", null);

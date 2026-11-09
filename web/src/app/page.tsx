@@ -3,6 +3,7 @@ import { HeartIcon, PlusIcon } from "@/components/ButtonIcons";
 import { ChainOrbit } from "@/components/ChainOrbit";
 import { LogoMark } from "@/components/Logo";
 import { SOURCE_ASSETS } from "@/lib/assets";
+import { SUPPORT_JAR_SLUG } from "@/lib/pageData";
 
 const STEPS = [
   { title: "Create a jar", text: "Connect the wallet you use for near.com and sign one message. No gas, no new account." },
@@ -25,7 +26,7 @@ export default function Home() {
           </h1>
           <div className="flex flex-wrap gap-3">
             <Link href="/new" className="btn-tactile-accent btn-tactile-lg h-14 gap-2.5 px-6 text-[17px]"><PlusIcon size={18} />Create a jar</Link>
-            <Link href="/j/support" className="btn-tactile btn-tactile-lg h-14 gap-2.5 px-6 text-[17px] font-medium"><HeartIcon size={18} />Support the developer</Link>
+            <Link href={`/j/${SUPPORT_JAR_SLUG}`} className="btn-tactile btn-tactile-lg h-14 gap-2.5 px-6 text-[17px] font-medium"><HeartIcon size={18} />Support the developer</Link>
           </div>
         </div>
         <div className="flex flex-col items-center gap-4">
