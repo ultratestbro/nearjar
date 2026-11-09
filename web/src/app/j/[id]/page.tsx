@@ -11,24 +11,36 @@ import { RECEIVE_ASSETS, SOURCE_ASSETS, receiveAsset } from "@/lib/assets";
 import { daoGovernance } from "@/lib/dao";
 import { trezuUrl } from "@/lib/daoPolicy";
 import { jarFeed, type FeedItem } from "@/lib/donations";
-import { resolveJar } from "@/lib/jars";
+import { resolveJar, type Jar as JarData } from "@/lib/jars";
 import { getPage, trustedPage } from "@/lib/pages";
 import { CONFIDENTIAL_DELIVERY } from "@/lib/quote";
 
 // enough delivered donations for the full supporters list and an honest "networks used"
 const FEED_LIMIT = 100;
 
-export default function JarPage({ params }: PageProps<"/j/[id]">) {
+export default function JarPage({ params, searchParams }: PageProps<"/j/[id]">) {
   return (
     <Suspense fallback={<p className="text-muted">Loading jar…</p>}>
-      <Jar params={params} />
+      <Jar params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function Jar({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const jar = await resolveJar(decodeURIComponent(id)).catch(() => null);
+/**
+ * The studio opens a jar it just published with ?new=1. The relayer returns once one RPC node has
+ * the jar, and the next read may reach a node a block behind, so that visit asks a few times.
+ */
+async function findJar(idOrSlug: string, fresh: boolean): Promise<JarData | null> {
+  for (let attempt = 0; ; attempt++) {
+    const jar = await resolveJar(idOrSlug).catch(() => null);
+    if (jar || !fresh || attempt >= 3) return jar;
+    await new Promise((r) => setTimeout(r, 700));
+  }
+}
+
+async function Jar({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const jar = await findJar(decodeURIComponent(id), query.new === "1");
   if (!jar) notFound();
   // /j/11, earlier links and other spellings land on the jar's current short link, from the contract
   const canonical = jar.slug ?? jar.id;

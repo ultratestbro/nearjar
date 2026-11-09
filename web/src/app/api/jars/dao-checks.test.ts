@@ -201,6 +201,13 @@ describe("POST /api/jars (relay)", () => {
     expect((await res.json()).error).toMatch(/without the DAO payout/);
   });
 
+  it.each(["demo", "Support"])("never submits a signed short link the site keeps for itself: %s", async (slug) => {
+    const res = await relay(post({ signed: signed(MEMBER, { action: "create_jar", jar: { ...jarInput, slug }, payout: null }) }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("That short link is reserved.");
+    expect(relayed).not.toHaveBeenCalled();
+  });
+
   it("refuses an outsider before the relayer pays (prepare skipped)", async () => {
     const res = await relay(post(createDao(OUTSIDER, DAO)));
     expect(res.status).toBe(403);

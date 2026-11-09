@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Modal } from "./Modal";
@@ -55,11 +55,15 @@ const noop = () => () => {};
 /** The share kit a new jar's page opens with (the studio sends the creator there with ?new=1). */
 export function NewJarShare({ path, title, raisedUsd }: { path: string; title: string; raisedUsd: number }) {
   const params = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
+  const [dismissed, setDismissed] = useState(false);
   // the kit reads window for its link, so it opens after hydration, never in the server render
   const mounted = useSyncExternalStore(noop, () => true, () => false);
-  if (!mounted || params.get("new") !== "1") return null;
-  // dropping the flag closes the kit and keeps a reload or a shared URL from reopening it
-  return <ShareModal path={path} title={title} raisedUsd={raisedUsd} heading="Your jar is live" onClose={() => router.replace(pathname, { scroll: false })} />;
+  if (!mounted || dismissed || params.get("new") !== "1") return null;
+  const close = () => {
+    setDismissed(true);
+    // a reload or a copied URL must not reopen it; replaceState skips the server render router.replace would do
+    window.history.replaceState(null, "", pathname);
+  };
+  return <ShareModal path={path} title={title} raisedUsd={raisedUsd} heading="Your jar is live" onClose={close} />;
 }

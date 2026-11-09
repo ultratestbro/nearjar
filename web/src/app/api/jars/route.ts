@@ -3,7 +3,7 @@ import { isDaoId } from "@/lib/daoPolicy";
 import { getJar, getJarsByOwner } from "@/lib/jars";
 import { relayCall } from "@/lib/near";
 import { parseNearComAccount } from "@/lib/nearcom";
-import { parsePage } from "@/lib/pageData";
+import { parsePage, RESERVED_SLUGS } from "@/lib/pageData";
 import { pageFingerprint, savePage } from "@/lib/pages";
 import { parseSignedAction, SIGNED_STANDARDS, type SignedAction } from "@/lib/signedPayload";
 
@@ -52,6 +52,9 @@ export async function POST(request: Request) {
 
   const read = parseSignedAction(signed);
   if (!read.ok) return Response.json(read, { status: 400 });
+  // the contract reserves no links; a signed one the site keeps for itself is never submitted
+  if (RESERVED_SLUGS.includes(String(read.value.jar?.slug ?? "").toLowerCase()))
+    return Response.json({ ok: false, error: "That short link is reserved." }, { status: 400 });
   const refusal = await payoutRefusal(read.value);
   if (refusal) return Response.json({ ok: false, error: refusal.error }, { status: refusal.status });
 
