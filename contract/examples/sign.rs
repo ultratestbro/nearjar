@@ -7,16 +7,19 @@ use sha3::{Digest, Keccak256};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let (scheme, seed, contract, action) = (&args[1], args[2].parse::<u8>().unwrap(), &args[3], &args[4]);
+    let (scheme, seed, contract, action) =
+        (&args[1], args[2].parse::<u8>().unwrap(), &args[3], &args[4]);
     let action: serde_json::Value = serde_json::from_str(action).unwrap();
     let deadline = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs()
         + 600;
-    let nonce: [u8; 32] = std::array::from_fn(|i| (deadline as u8).wrapping_add(i as u8).wrapping_mul(seed));
+    let nonce: [u8; 32] =
+        std::array::from_fn(|i| (deadline as u8).wrapping_add(i as u8).wrapping_mul(seed));
 
-    let (signer_id, sign): (String, Box<dyn Fn(&str) -> serde_json::Value>) = match scheme.as_str() {
+    let (signer_id, sign): (String, Box<dyn Fn(&str) -> serde_json::Value>) = match scheme.as_str()
+    {
         "ed25519" => {
             let key = SigningKey::from_bytes(&[seed; 32]);
             let pk = key.verifying_key();
@@ -35,7 +38,10 @@ fn main() {
         "erc191" => {
             let key = k256::ecdsa::SigningKey::from_bytes(&[seed; 32].into()).unwrap();
             let point = key.verifying_key().to_encoded_point(false);
-            let addr = format!("0x{}", hex::encode(&Keccak256::digest(&point.as_bytes()[1..])[12..]));
+            let addr = format!(
+                "0x{}",
+                hex::encode(&Keccak256::digest(&point.as_bytes()[1..])[12..])
+            );
             (
                 addr,
                 Box::new(move |payload: &str| {
