@@ -43,7 +43,7 @@ A jar may pay a Sputnik DAO treasury instead of the creator's near.com account.
 - **Where the payout lives.** In the contract: `SignedJar.payout` (optional, `<label>.sputnik-dao.near` only), stored on the jar at creation. `update_jar` must sign the same value (absent = none) or the contract panics `payout cannot change`. `get_jar` returns `payout`, `endorsed` and `revision`.
 - **Why not page data.** Page data sits in Turso; a payout there would let whoever writes to the database redirect donations. Every quote takes the recipient from `get_jar` (`lib/quote.ts` `payoutOf`), nothing else.
 - **Nothing in Turso points donors anywhere.** The short link is a signed jar field the contract keeps unique (`get_jar_by_slug`; a link once claimed keeps pointing at its jar, also after a rename or close), so a database writer can't move `/j/<slug>` to another jar. The page's `sha256` fingerprint is stored on chain and the page is shown only when its stored text hashes to it (`lib/pages.ts` `trustedPage`); images are served only when their bytes hash to their id. Receipts are recorded only for what 1Click's `/status` confirms: `SUCCESS` with `quoteRequest.recipient` = the jar's payout account (`INTENTS` for a DAO). What stays in Turso unverified: donor names and messages, and in-flight statuses.
-- **Delivery.** `recipientType: INTENTS` to the DAO: its public intents.near balance, which Trezu lists as *Intents* and spends by FunctionCall proposal (`mt_transfer` / `ft_withdraw` on intents.near). Not `CONFIDENTIAL_INTENTS`: a public treasury can't see confidential credits. The partner JWT, when set, is sent with it too (no fee). Checked on a live quote (2026-11-09): nearjar.xyz, which runs with the JWT, quotes the DAO jar (jar `1`) with `INTENTS` and without the 0.2% 1Click fee.
+- **Delivery.** `recipientType: INTENTS` to the DAO: its public intents.near balance, which Trezu lists as *Intents* and spends by FunctionCall proposal (`mt_transfer` / `ft_withdraw` on intents.near). Not `CONFIDENTIAL_INTENTS`: a public treasury can't see confidential credits. The partner JWT, when set, is sent with it too; `INTENTS` doesn't need it, and the JWT doesn't change 1Click's fee (see [Money](#money)).
 - **Who may create one.** Checked in `/api/jars/prepare` (for the editor) and again in `/api/jars` on the signed message itself, before the relayer pays (all seven standards: the JSON is `payload`, `payload.message` for NEP-413, `payload.text` for TON Connect):
   1. the contract stores DAO payouts (`get_config` has `version`; an older build would make the jar pay the signer);
   2. the DAO account exists with a contract (own code or the factory's global contract) and `get_policy` reads;
@@ -87,9 +87,29 @@ The contract cannot verify a payment on another chain, so receipts are relayer-a
 
 ## Money
 
-- Service fee: 0. 1Click charges 0.2% without a partner JWT. The hosted site (nearjar.xyz) runs with one, so there is no 1Click fee there; a local run without `ONE_CLICK_JWT` pays the 0.2%.
+- Service fee: 0.
+- 1Click fee: 0.2%, or 0.01% on stablecoin pairs, with or without NearJar's partner JWT; the JWT only enables `CONFIDENTIAL_INTENTS` (see [Accounts](#accounts)). The donate review's *Route fee* is the quote's USD in minus USD out, so this fee is part of it.
 - Minimum donation: $1.
 - Funds always go straight to the creator's near.com balance, or to the jar's DAO treasury; NearJar never holds them.
+
+An unauthenticated 1Click quote shows the fee in `quoteRequest.appFees` (`"fee"` in bps). To compare it with nearjar.xyz, which sends the JWT, for the same amount in (needs `curl` and `jq`):
+
+```sh
+# nearjar.xyz: $1,000 of USDC on Solana to jar "2" (the server sends the partner JWT)
+r=$(curl -s -X POST https://nearjar.xyz/api/quote -H 'content-type: application/json' \
+  -d '{"jarId":"2","usdCents":100000,"sourceChain":"solana:mainnet","sourceSymbol":"USDC"}')
+echo "$r" | jq -c '{amountIn: .quote.amountIn, amountOut: .quote.amountOut}'
+# 1Click without auth: the same amount in, to the same account
+curl -s -X POST https://1click.chaindefuser.com/v0/quote -H 'content-type: application/json' -d '{"dry":true,
+  "swapType":"EXACT_INPUT","slippageTolerance":100,"depositType":"ORIGIN_CHAIN","refundType":"ORIGIN_CHAIN",
+  "originAsset":"nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near",
+  "destinationAsset":"nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+  "amount":"'"$(echo "$r" | jq -r .quote.amountIn)"'","refundTo":"1nc1nerator11111111111111111111111111111111",
+  "recipient":"0x63428e70a8016d10e8e2f7da440c898063afa299","recipientType":"INTENTS","deadline":"2030-01-01T00:00:00Z"}' \
+  | jq -c '{appFees: .quoteRequest.appFees, amountIn: .quote.amountIn, amountOut: .quote.amountOut}'
+```
+
+→ on 2026-11-09 the 1Click answer had `"fee":1` (a stablecoin pair) and almost always the same `amountOut` as nearjar.xyz (once 0.5 bp apart). For SOL (`"sourceSymbol":"SOL"`, `"originAsset":"nep141:sol.omft.near"`) it had `"fee":20`, and the two outputs were within 2 bp of each other, either way round, since the price moves between the calls. A waived 0.2% would make nearjar.xyz's output about 20 bp higher. 1Click's [fee page](https://docs.near-intents.org/resources/fees) lists an extra 0.25% for requests without an API key; these unauthenticated quotes did not include it.
 
 ## Architecture
 

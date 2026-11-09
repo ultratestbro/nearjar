@@ -36,8 +36,8 @@ NearJar turns that account into a payment link that works from any chain.
 
 1. Open https://nearjar.xyz → the hero shows every network donors can pay from, with coins dropping into the jar.
 2. Open https://nearjar.xyz/j/support → a jar page: cover, goal, supporters and a donate card.
-3. In the donate card type `5`, press **Pay with** and pick **Solana → USDC** → under the button you see a live NEAR Intents quote: what you send, what the creator gets and the ETA. It is a *dry* quote: no deposit address is created and nothing is charged.
-4. Press **Donate $5** → the review step shows the route (USDC on Solana → NEAR Intents → USDC in the creator's near.com balance), the fee (NearJar takes nothing) and the wallet to connect. Stop here unless you want to really donate.
+3. In the donate card type `5`, press **Pay with**, pick **Solana** in the network list, then **USDC** → above the **Donate $5** button a live NEAR Intents quote appears: `<amount> USDC · creator gets ≈ <amount> USDC · ~<n> min`. It is a *dry* quote: no deposit address is created and nothing is charged.
+4. Press **Donate $5** → *Review · $5* shows the route (USDC on Solana → NEAR Intents → USDC on near.com), then *You send*, *Creator gets*, *Route fee* (*NEAR Intents · NearJar takes nothing*: the quote's USD in minus USD out, 1Click's own fee included), *Arrives* and *Lands in* (*Confidential balance*), and a **Connect a Solana wallet** button. Stop here unless you want to really donate.
 5. The same quote from a terminal:
    ```sh
    curl -s -X POST https://nearjar.xyz/api/quote -H 'content-type: application/json' \
@@ -154,7 +154,7 @@ What needs configuration (copy [`web/.env.example`](web/.env.example) to `web/.e
 |---|---|
 | `NEARJAR_DEMO_OWNER` | the support jar (`/j/support`, id `demo`) and the near.com account it pays |
 | `RELAYER_ACCOUNT_ID`, `RELAYER_PRIVATE_KEY` | creating jars and writing receipts (a function-call key limited to the contract) |
-| `ONE_CLICK_JWT` | delivery into the **Confidential** near.com balance and no 1Click fee; without it donations land in the public intents.near balance and 1Click charges 0.2% |
+| `ONE_CLICK_JWT` | delivery into the **Confidential** near.com balance (`CONFIDENTIAL_INTENTS`, which 1Click quotes only with a partner JWT); without it donations land in the public intents.near balance (`INTENTS`) and the review's *Lands in* says *Public balance*. 1Click's fee was the same either way on 2026-11-09: 0.2%, or 0.01% on stablecoin pairs ([how to check](docs/FLOW.md#money)) |
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | a hosted database instead of `local.db` |
 | `NEXT_PUBLIC_REOWN_PROJECT_ID` | connecting any EVM or Solana wallet: browser extensions and phone wallets both go through Reown AppKit, which doesn't load without it (`web/src/lib/appkit.ts`). NEAR, TON, Tron and Bitcoin wallets and deposit addresses work without it |
 | `SOLANA_RPC_URL`, `TON_RPC_URL` | sending Solana and TON donations through a private node |
