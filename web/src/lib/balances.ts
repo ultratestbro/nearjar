@@ -14,6 +14,7 @@ export interface Balance {
 export type BalanceFamily = "evm" | "solana" | "near";
 
 // keyless public endpoints: balances are a convenience, a slow or missing chain just shows no balance
+// (RPC_URLS can put a keyed endpoint in front of each, see rpcAt)
 const EVM_RPC: Record<string, string> = {
   "eip155:1": "https://ethereum-rpc.publicnode.com",
   "eip155:8453": "https://base-rpc.publicnode.com",
@@ -31,6 +32,16 @@ const EVM_RPC: Record<string, string> = {
 const SOLANA_RPC = () => process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
 // donors pay on mainnet whatever network the jar contract runs on
 const NEAR_RPC = "https://free.rpc.fastnear.com";
+
+/** Keyed endpoints by CAIP-2 chain ("eip155:8453", "near:mainnet"): RPC_URLS, a JSON object, server-side only. */
+function keyedRpc(chain: string): string | undefined {
+  try {
+    const url = (JSON.parse(process.env.RPC_URLS ?? "{}") as Record<string, unknown>)[chain];
+    return typeof url === "string" && url.startsWith("https://") ? url : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export const ADDRESS: Record<BalanceFamily, RegExp> = {
   evm: /^0x[0-9a-fA-F]{40}$/,
@@ -71,12 +82,26 @@ async function rpc(url: string, calls: { method: string; params: unknown }[]): P
   return calls.map((_, i) => byId.get(i));
 }
 
+/** The chain's keyed endpoint when one is set, the public one when it is not or fails. */
+async function rpcAt(chain: string, publicUrl: string, calls: { method: string; params: unknown }[]): Promise<unknown[]> {
+  const keyed = keyedRpc(chain);
+  if (keyed) {
+    try {
+      return await rpc(keyed, calls);
+    } catch {
+      // the public node next
+    }
+  }
+  return rpc(publicUrl, calls);
+}
+
 async function evm(address: string): Promise<Raw[]> {
   const owner = address.slice(2).toLowerCase().padStart(64, "0");
   const chains = await Promise.all(
     Object.entries(EVM_RPC).map(async ([chain, url]) => {
       const assets = SOURCE_ASSETS.filter((a) => a.chain === chain);
-      const results = await rpc(
+      const results = await rpcAt(
+        chain,
         url,
         assets.map((a) =>
           a.contract
@@ -124,7 +149,7 @@ async function near(account: string): Promise<Raw[]> {
   const args = Buffer.from(JSON.stringify({ account_id: account })).toString("base64");
   return Promise.all(
     assets.map(async (asset) => {
-      const [r] = await rpc(NEAR_RPC, [
+      const [r] = await rpcAt("near:mainnet", NEAR_RPC, [
         asset.contract
           ? { method: "query", params: { request_type: "call_function", finality: "final", account_id: asset.contract, method_name: "ft_balance_of", args_base64: args } }
           : { method: "query", params: { request_type: "view_account", finality: "final", account_id: account } },
