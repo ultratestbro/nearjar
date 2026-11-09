@@ -168,3 +168,11 @@ describe("quoteDonation", () => {
     expect(JSON.stringify(call[1]?.headers)).toContain("test-jwt");
   });
 });
+
+describe("SOURCE_ASSETS", () => {
+  it("leaves out the catalog tokens 1Click doesn't list", () => {
+    expect(sourceAsset("eip155:1", "stETH")).toBeUndefined();
+    expect(sourceAsset("eip155:1", "SSV")).toBeUndefined();
+    expect(sourceAsset("eip155:1", "wstETH")).toBeDefined();
+  });
+});
