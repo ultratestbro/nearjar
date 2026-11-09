@@ -45,9 +45,28 @@ NearJar turns that account into a payment link that works from any chain.
    ```
    → `{"ok":true,"quote":{"dry":true,"amountIn":"…","amountInFormatted":"5.00…","amountOut":"…",…,"etaSeconds":…,"depositAddress":"",…}}`
 
-`/j/support` is the developer's own jar: donations to it really reach the NearJar developer's near.com account. It is not stored in `nearjar.near`. The web app serves it from `NEARJAR_DEMO_OWNER` under the id `demo` (the `jarId` in the curl above) and counts its total from the delivered donations in its database. The open jars stored on chain are `/j/masya` (jar `"2"`) and the DAO jar `/j/nearjar-dao` (jar `"1"`, pays `nearjar-demo.sputnik-dao.near`, *Endorsed by the DAO ✓* as of 2026-11-09). `/api/quote` takes a numeric jar id (`"2"`) or `demo`, not a short link.
+`/j/support` is the developer's own jar: donations to it really reach the NearJar developer's near.com account. It is not stored in `nearjar.near`. The web app serves it from `NEARJAR_DEMO_OWNER` under the id `demo` (the `jarId` in the curl above) and counts its total from the delivered donations in its database. `/api/quote` takes a numeric jar id (`"2"`) or `demo`, not a short link.
 
-Read a jar straight from the contract (`args_base64` is `{"slug":"masya"}`):
+The jars stored on chain on 2026-11-09:
+
+| Jar | Link | Status |
+|---|---|---|
+| `"0"` | `smoke-020-b` | Closed: the 0.2.0 release check |
+| `"1"` | `/j/nearjar-dao` | Open; pays the DAO `nearjar-demo.sputnik-dao.near`, *Endorsed by the DAO ✓* |
+| `"2"` | `/j/masya` | Open |
+| `"3"` | `/j/support-nearjar` | Open; *Support the NearJar*, created on 2026-11-09 by the near.com account `/j/support` pays (`0x6342…a299`). It is a separate jar: the contract keeps its total, which is not added to `/j/support`'s |
+
+List them (`args_base64` is `{"from":"0","limit":100}`):
+
+```sh
+curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"nearjar.near","method_name":"get_jars","args_base64":"eyJmcm9tIjoiMCIsImxpbWl0IjoxMDB9"}}' \
+  | jq -c '.result.result | implode | fromjson | map({id, slug, status, payout})'
+```
+
+→ `[{"id":"0","slug":"smoke-020-b","status":"Closed","payout":null},{"id":"1","slug":"nearjar-dao","status":"Open","payout":"nearjar-demo.sputnik-dao.near"},{"id":"2","slug":"masya","status":"Open","payout":null},{"id":"3","slug":"support-nearjar","status":"Open","payout":null}]`. Jars created later follow these.
+
+Read one jar by its short link (`args_base64` is `{"slug":"masya"}`):
 
 ```sh
 curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' \

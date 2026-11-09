@@ -108,7 +108,7 @@ Rust is pinned to 1.97.1 (`rust-toolchain.toml`), the same as near/intents. With
 
 0.2.0 (DAO payouts, on-chain short links and page fingerprints) is live since 2026-11-08: wasm `GxM9VeG6KT2uBAygcWP1mTRPVDDL9UpEZzFXBY1H6KzW`, deployed with `assert_no_jars`: [`Bixmq42w…`](https://nearblocks.io/txns/Bixmq42wknUFM1NwLF7p4KCD1mncwtwaghcwCUAWKa8x). Release check through nearjar.xyz with a throwaway implicit account: jar #0 created with short link `smoke-020-a` ([`J5v3jgCB…`](https://nearblocks.io/txns/J5v3jgCBiWJZThgD9ZX3xfUophBwSQyxGLJ2aFgoWQrj)), edited to `smoke-020-b`, revision 1 ([`5J8aJFdZ…`](https://nearblocks.io/txns/5J8aJFdZUPVHZu7F476qVDciLQU5WvN5xgUbhRYoXx71)), closed ([`4BxVGijr…`](https://nearblocks.io/txns/4BxVGijrZcohMVNhuVXnxAo3mkwHLk74qkHebAFyDZB9)).
 
-Storage on 2026-11-09 (0.2.0, 3 jars): `storage_usage` 475,999 bytes, so about 4.76 NEAR of the account's balance is reserved for storage.
+Storage at block 223,753,379 (2026-11-09 10:16 UTC; 0.2.0, 4 jars): `storage_usage` 477,275 bytes, so about 4.77 NEAR of the account's balance is reserved for storage. It grows with every jar, used nonce and donation receipt.
 
 nearblocks.io answers scripted requests with a Cloudflare 403; the same checks over RPC:
 
