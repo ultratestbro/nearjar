@@ -132,7 +132,7 @@ Limits:
 
 Prerequisites:
 
-- Node.js ≥ 20.9 (the minimum for Next.js 16; tested with 24.22.1).
+- Node.js 24 (tested with 24.22.1) or 22.22.2+. Node 20 is not enough: near-api-js 7.4.0 declares `node >=22.22.2`, Any Wallet Kit `>=22`, and vite 8 (used by vitest 4 for `pnpm test`) `^20.19.0 || >=22.12.0`.
 - pnpm 10: `corepack enable` picks the version in `web/package.json` (`packageManager`, pnpm 10.30.2).
 - For the contract: rustup (`contract/rust-toolchain.toml` pins Rust 1.97.1 with the `wasm32-unknown-unknown` target; rustup installs it on the first `cargo` call) and cargo-near ≥ 0.22 for the wasm build.
 
