@@ -83,7 +83,7 @@ export function ConnectPanel({ families = FAMILIES, onConnected }: { families?: 
       </div>
       <p className="px-1 text-xs text-muted">{FAMILY[family].hint}</p>
       {error && <p className="px-1 text-sm text-danger">{error}</p>}
-      <p className="px-1 text-xs text-muted">Passkey near.com logins are coming next.</p>
+      <p className="px-1 text-xs text-muted">Passkey near.com logins are not supported yet.</p>
     </div>
   );
 }

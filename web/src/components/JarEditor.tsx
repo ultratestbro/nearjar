@@ -617,7 +617,7 @@ function DaoCheckCard({ info }: { info: Extract<DaoInfo, { ok: true }> }) {
       </ul>
       {info.governance && soloText(info.governance) && (
         <p className="rounded-xl bg-amber-400/10 px-3 py-2.5 text-sm text-amber-200">
-          {soloText(info.governance)}. The jar page tells donors so, next to the treasury.
+          {soloText(info.governance)}. The jar page shows this in short next to the treasury, and in full when donors hover it.
         </p>
       )}
     </div>

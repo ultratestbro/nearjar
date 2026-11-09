@@ -17,7 +17,6 @@ out/
 # rust / near
 target/
 *.wasm
-!contract/res/*.wasm
 
 # local data
 *.db
