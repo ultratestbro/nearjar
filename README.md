@@ -8,8 +8,17 @@ A near.com user creates a jar and shares a link. Donors pay from 26 networks (EV
 - **Contract:** [`nearjar.near`](https://nearblocks.io/address/nearjar.near) · relayer [`relayer.nearjar.near`](https://nearblocks.io/address/relayer.nearjar.near)
 - **Built at the [NEAR Hackathon](https://nearhackathon.com)** (Nov 2026) · tracks: Real-World Money, Social Money, Open Innovation
 - **Demo post with video:** https://x.com/0xdanya_xo/status/2119822989596180955
+- **Re-check the main on-chain claims in one command:** `node scripts/verify.mjs` (Node 22+, nothing to install) re-reads the contract's code hash and keys, the jars, the DAO's vote, each donation's payment and NEAR Intents settlement, and the live quote and DAO APIs, and prints PASS or FAIL for each.
 
 > NearJar is an independent concept, not an official near.com product. It is designed as a feature near.com could embed.
+
+## By track
+
+| Track | What NearJar does for it | Proof on mainnet |
+|---|---|---|
+| **Social Money** (Sputnik DAO, Trezu, named accounts) | A DAO jar pays a `*.sputnik-dao.near` treasury that is fixed in the contract. Donors pay from 26 networks into the DAO's NEAR Intents balance, which Trezu shows; the members spend it by proposal. Only the DAO can endorse its jar, by a passed FunctionCall proposal; the DAO (by proposal) or the creator can close it. NearJar doesn't rebuild the multisig: it is the treasury's way in. | Jar `"1"` ([`/j/nearjar-dao`](https://nearjar.xyz/j/nearjar-dao)) pays the project's own demo DAO `nearjar-demo.sputnik-dao.near` (one approver). The request was filed from Trezu's template ([`7UddEaaM…`](https://nearblocks.io/txns/7UddEaaMzWa9qzoUU6a4HmCkcLMUZc2fUprGCt2NcRrR)) and approved, which called `endorse_jar` ([`EuMRCUVm…`](https://nearblocks.io/txns/EuMRCUVmMdN758AGAG8bmNoff5h8zXxzvvye96hWa27E)). 2 USDC paid on Ethereum reached the treasury ([`C4vrqKoY…`](https://nearblocks.io/txns/C4vrqKoYmgSfwRZZrw1Nwr72rTH7diA92WAdGoUtztzA)). |
+| **Real-World Money** (stablecoins, NEAR Intents, meta transactions) | A payment link anyone can pay with any of 73 tokens on 26 networks; the payee receives the asset they picked, USDC by default (or USDT, NEAR, BTC, ETH), at the quoted amount in their near.com balance through NEAR Intents. Creating a jar is gasless: the creator signs one message and a relayer with a function-call key pays (a relayed signed message, not an NEP-366 delegate action). Delivered donations export as CSV for bookkeeping, from NearJar's database, each row with its payment and NEAR Intents tx hashes: `https://nearjar.xyz/api/jars/export?owner=<near.com account>`. | The three donations in [Donations on mainnet](#donations-on-mainnet): USDC on Ethereum, USDC on Base and ETH on Base, received as USDC, two of them into a confidential balance. |
+| **Open Innovation** (chain abstraction, build your own) | near.com accounts live inside `intents.near`, and near.com gives them no address other chains can pay; NearJar gives each one a link payable from any chain. The contract verifies `intents.near`'s own signature envelopes with its code (`defuse-core`: `erc191`, `raw_ed25519`, `nep413`, `ton_connect`, …) and asks `intents.near.has_public_key` who owns the account, so ownership follows near.com's key rotation. | `nearjar.near` runs `GxM9VeG6…`, the build of [`contract/`](contract). Jar `"2"` was created with an EVM wallet's `erc191` signature ([`8THN64vH…`](https://nearblocks.io/txns/8THN64vHTVTvJKYqP1z3DVFYynk3a6fSHjSebyuRgBya)). |
 
 ## The problem
 
@@ -37,14 +46,14 @@ Donations to `/j/support-nearjar` really reach the NearJar developer's near.com 
 
 ## On chain
 
-Every jar lives in `nearjar.near`. The commands below need `curl` and `jq`; if `free.rpc.fastnear.com` answers 429 (rate limit), use `https://rpc.mainnet.near.org`. The jars on 2026-11-09:
+Every jar lives in `nearjar.near`. The commands below need `curl` and `jq`; if `free.rpc.fastnear.com` answers 429 (rate limit), use `https://rpc.mainnet.near.org`. The jars on 2026-11-13:
 
-| Jar | Link | Status |
-|---|---|---|
-| `"0"` | `/j/smoke-020-b` | Closed: the 0.2.0 release check |
-| `"1"` | `/j/nearjar-dao` | Open; pays the DAO `nearjar-demo.sputnik-dao.near`, *Endorsed by the DAO ✓* |
-| `"2"` | `/j/masya` | Open; the jar made in the demo video |
-| `"3"` | `/j/support-nearjar` | Open; the developer's own jar, *Support the NearJar* |
+| Jar | Link | Status | Raised |
+|---|---|---|---|
+| `"0"` | `/j/smoke-020-b` | Closed: the 0.2.0 release check | $0.00 |
+| `"1"` | `/j/nearjar-dao` | Open; pays the DAO `nearjar-demo.sputnik-dao.near`, *Endorsed by the DAO ✓* | $2.00 |
+| `"2"` | `/j/masya` | Open; the jar made in the demo video | $5.00 |
+| `"3"` | `/j/support-nearjar` | Open; the developer's own jar, *Support the NearJar* | $4.98 |
 
 List them (`args_base64` is `{"from":"0","limit":100}`):
 
@@ -82,6 +91,20 @@ curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' \
 
 → `{"FunctionCall":{"allowance":null,"method_names":["submit","record_donation"],"receiver_id":"nearjar.near"}}` is the key the server holds. The other key, `"FullAccess"`, stays with the operator and is not on the server.
 
+`nearjar.near` itself has one key, `FullAccess`, also the operator's. So the contract can be upgraded (0.2.0 was deployed that way: [`Bixmq42w…`](https://nearblocks.io/txns/Bixmq42wknUFM1NwLF7p4KCD1mncwtwaghcwCUAWKa8x)). The on-chain rules in this README are those of the code with the hash above; an upgrade is a public transaction and changes `code_hash`.
+
+### Donations on mainnet
+
+All three were paid by the developer to test the flow; there are no outside donations yet. `node scripts/verify.mjs` re-checks each payment and its NEAR Intents settlement against the receipt.
+
+| Recorded (UTC) | Jar | Paid → received | Payment | NEAR Intents settlement | Receipt on `nearjar.near` |
+|---|---|---|---|---|---|
+| 2026-11-08 11:55 | `"1"` DAO jar | 2.000744 USDC on Ethereum → 2.000506 USDC to `nearjar-demo.sputnik-dao.near` | [`0x9d8f8fb1…`](https://etherscan.io/tx/0x9d8f8fb18264f4b27d3d33c764f7cd02c4211f99ddcfb6609fec64022dc20e2c) | [`C4vrqKoY…`](https://nearblocks.io/txns/C4vrqKoYmgSfwRZZrw1Nwr72rTH7diA92WAdGoUtztzA) | [`4K8QFNfw…`](https://nearblocks.io/txns/4K8QFNfwu3F4fuQBVe2fbdvcnJ4EjK6rEt9RNw26WX2N) |
+| 2026-11-08 19:34 | `"2"` `/j/masya` | 5.002446 USDC on Base → 5.001588 USDC, confidential balance | [`0x45f1034b…`](https://basescan.org/tx/0x45f1034be6ce4bd953eb553755fa41c52695d7142d6c09d32e0bd8a33da7e7a7) | [`5vXGXSVp…`](https://nearblocks.io/txns/5vXGXSVpJTez6y7PGVX1pfj7GfDuSsJZavLqXmgSjHJD) | [`5XWy9tFY…`](https://nearblocks.io/txns/5XWy9tFYufRVxg3RZqzwHkHwnFCAQhAstBmjAsUCpCdH) |
+| 2026-11-09 10:07 | `"3"` `/j/support-nearjar` | 0.002377 ETH on Base → 4.984054 USDC, confidential balance | [`0xb526ee3d…`](https://basescan.org/tx/0xb526ee3ddb4efca433e9f47507c6961d3ac29b073f34c6c2c26f5895b62dd535) | [`HciAX7HS…`](https://nearblocks.io/txns/HciAX7HSXDCkt5uQSvsEzta6EQVE4aFQgHaqcfRxMvMJ) | [`hNGhbLKE…`](https://nearblocks.io/txns/hNGhbLKE6J28yY1BXEytPkeNRmFYU47jJU4yBrSibDf) |
+
+For the DAO jar the settlement tx shows the USDC credited to the treasury. For a confidential delivery it shows only the paid asset (5.002446 USDC on Base, 0.002377 ETH) entering the Confidential Intents balance; the swap to USDC and the recipient aren't visible on chain, and the USDC amount is what 1Click's `/status` reported and the relayer recorded.
+
 ## Create a jar (needs the wallet you use for near.com)
 
 1. Open https://nearjar.xyz/new → *Creator studio* asks for a wallet. Pick your near.com wallet's network on the **EVM** / **Solana** / **NEAR** / **TON** tabs and press **Connect EVM** (or **Connect Solana**, …) → NearJar shows your near.com account in the header and under **Payout & link** → *Where donations go*: `nearcom:0x…`, a 64-hex implicit account or a `name.near`.
@@ -101,7 +124,7 @@ A jar can pay a community's **Sputnik DAO treasury** instead of its creator. Don
 
 Whether one member could is the DAO's own policy, so the jar page reads it and shows it next to the treasury, for example `9 members · Spending: 3 of 9 approvals` for `shitzu.sputnik-dao.near`. The full rule is in the hover text (*Spending needs 3 of the 9 members of “council”*). When one member can approve spending alone, the hover text adds *One member can approve spending alone*. The project's own DAO, `nearjar-demo`, has a single approver and showed `2 members · Spending: 1 approval` on 2026-11-09.
 
-**The payout is enforced on chain, not by NearJar's database.**
+**The payout is enforced on chain, not by NearJar's database** (by the deployed contract, which its operator can upgrade: see [On chain](#on-chain)).
 
 - The creator signs the DAO together with the jar fields (`"payout": "shitzu.sputnik-dao.near"`), so the wallet shows where the money goes. `nearjar.near` stores it; `get_jar` returns `payout` and `endorsed`. The contract accepts only `<name>.sputnik-dao.near`, because only the factory `sputnik-dao.near` can create such accounts. Look-alikes like `x.sputnik-dao.near.evil.near` are refused.
 - The payout never changes. An `update_jar` that signs a different payout, or none, fails with `payout cannot change`. So a creator can't move a DAO jar, with its total and its link, to themselves.
@@ -223,6 +246,7 @@ Full flow and decisions: [docs/FLOW.md](docs/FLOW.md) · contract details: [cont
 | `web/` | Next.js 16 app: landing, jar pages, donate flow, status tracking, creator studio, relayer API routes |
 | `contract/` | NearJar contract (Rust, near-sdk 5.29) and tests |
 | `docs/FLOW.md` | product flow, storage and money decisions |
+| `scripts/verify.mjs` | read-only check of this README's main on-chain claims against mainnet and the live site |
 
 ## Baseline and disclosure
 
@@ -233,6 +257,7 @@ Hackathon rules allow pre-existing libraries and AI-written code if they are lis
   - `swap2-assets` 0.2.2: the networks and tokens donors can pay with.
   - `wallet-solana` 0.6.0: Solana transfer builders for donor payments.
   - `core` 0.8.0 and `protocol-swap2-core` 0.10.0 are in `web/package.json` but not imported by this repo: they come in as dependencies of the near-intents provider (`core` is its peer dependency, `protocol-swap2-core` a dependency). `tx-preview-evm` 0.5.0 is installed transitively through `protocol-swap2-core`.
+- **totw**, the author's earlier app (private): commit `31772b7` ("wallet connect like totw") gave NearJar the same connect flow, a grid of networks where each opens its own modal (Reown AppKit for EVM and Solana, NEAR Wallet Selector, TON Connect). The `createAppKit` theme options in `web/src/lib/appkit.ts` follow totw's (the same variables, NearJar's colours); the connect, session and signing code in that file and the connect menu were written here. Counting distinct source lines of 50+ characters (imports and comments aside), fewer than 10 of about 3,000 also appear in totw, all generic (a `useState` line, Tailwind class strings, a `content-type` header).
 - **Third-party:**
   - contract: `defuse-core` from near/intents (pinned commit) for signature verification, near-sdk, serde and serde_json; tests and examples use ed25519-dalek, k256, sha3, bs58 and hex.
   - web: Next.js, React, Tailwind CSS, Reown AppKit (with `@walletconnect/universal-provider`), wagmi, `@wagmi/core` and viem, `@tanstack/react-query` (wagmi's peer), NEAR Wallet Selector (Meteor, HERE, Intear, modal UI), TON Connect UI and `@ton/core`, `@solana/kit` and `@solana/web3.js`, sats-connect, `qrcode`, `buffer`, the libSQL client (Turso), `server-only`; vitest, ESLint and TypeScript for development.
